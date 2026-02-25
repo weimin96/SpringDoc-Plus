@@ -10,6 +10,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ResourceLoader;
 
 /**
  * @author pwm
@@ -33,8 +34,8 @@ public class SpringdocPlusGatewayAutoConfiguration {
     }
 
     @Bean
-    public DocHtmlController docHtmlController() {
-        return new DocHtmlController();
+    public DocHtmlController docHtmlController(ResourceLoader resourceLoader) {
+        return new DocHtmlController(resourceLoader);
     }
 
     @Bean
