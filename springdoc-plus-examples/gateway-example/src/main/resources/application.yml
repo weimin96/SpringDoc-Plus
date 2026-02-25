@@ -1,0 +1,72 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-example
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/user-service/**
+          filters:
+            - StripPrefix=1
+        - id: order-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/order-service/**
+          filters:
+            - StripPrefix=1
+    discovery:
+      client:
+        simple:
+          instances:
+            user-service:
+              - uri: http://localhost:8081
+            order-service:
+              - uri: http://localhost:8082
+
+springdoc-plus:
+  gateway:
+    enabled: true
+    # 切换：manual / discover
+    strategy: manual
+
+    # 对齐 Knife4j 排序策略
+    tags-sorter: order
+    operations-sorter: order
+
+    # 可选：开启 Basic 保护（示例默认关闭）
+    basic:
+      enabled: false
+      username: admin
+      password: admin
+
+    # UI 鉴权透传（示例默认启用）
+    auth:
+      enabled: true
+      header-name: Authorization
+      default-prefix: Bearer
+      persist: true
+
+    # manual 模式数据源
+    routes:
+      - name: 用户服务
+        service-name: user-service
+        url: /user-service/v3/api-docs
+        context-path: /user-service
+        order: 1
+      - name: 订单服务
+        service-name: order-service
+        url: /order-service/v3/api-docs
+        context-path: /order-service
+        order: 2
+
+    # discover 模式数据源（示例仍然开启，便于切换 strategy）
+    discover:
+      enabled: true
+      version: openapi3
+      excluded-services:
+        - gateway-example
