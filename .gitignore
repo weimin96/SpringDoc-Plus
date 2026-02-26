@@ -78,3 +78,6 @@ hs_err_pid*
 
 # Testing
 .testcontainers.properties
+
+springdoc-plus-web/node_modules
+springdoc-plus-web/dist
