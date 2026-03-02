@@ -1,10 +1,10 @@
 package io.github.weimin96.springdocplus.examples.user.controller;
 
+import io.github.weimin96.springdocplus.examples.user.bean.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -72,7 +72,7 @@ public class UserController {
         List<User> users = new ArrayList<>();
         for (int i = 1; i <= size; i++) {
             User user = new User();
-            user.setId((long) (page * size + i));
+            user.setId( ((long) page * size + i));
             user.setName("用户" + i);
             user.setEmail("user" + i + "@example.com");
             user.setAge(20 + i % 30);
@@ -169,7 +169,7 @@ public class UserController {
     @Operation(summary = "批量创建用户", description = "一次创建多个用户")
     @PostMapping("/batch")
     public ResponseEntity<BatchResult> batchCreate(
-            @org.springframework.web.bind.annotation.RequestBody List<User> users) {
+            @RequestBody List<User> users) {
         BatchResult result = new BatchResult();
         result.setSuccessCount(users.size());
         result.setFailCount(0);
@@ -183,7 +183,7 @@ public class UserController {
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> update(
             @PathVariable Long id,
-            @org.springframework.web.bind.annotation.RequestBody User user) {
+            @RequestBody User user) {
         user.setId(id);
         user.setUpdatedAt(LocalDateTime.now());
         return ResponseEntity.ok(user);
@@ -214,7 +214,7 @@ public class UserController {
     @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> partialUpdate(
             @PathVariable Long id,
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> updates) {
+            @RequestBody Map<String, Object> updates) {
         User user = new User();
         user.setId(id);
         user.setName((String) updates.getOrDefault("name", "未修改"));
@@ -385,7 +385,7 @@ public class UserController {
     @PostMapping(path = "/text", consumes = MediaType.TEXT_PLAIN_VALUE,
             produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> postText(
-            @org.springframework.web.bind.annotation.RequestBody String text) {
+            @RequestBody String text) {
         return ResponseEntity.ok("收到文本: " + text);
     }
 
@@ -402,7 +402,7 @@ public class UserController {
     @Operation(summary = "处理嵌套对象", description = "演示嵌套JSON对象的处理")
     @PostMapping("/nested")
     public ResponseEntity<Order> createOrder(
-            @org.springframework.web.bind.annotation.RequestBody Order order) {
+            @RequestBody Order order) {
         order.setId(System.currentTimeMillis());
         order.setCreatedAt(LocalDateTime.now());
         return ResponseEntity.ok(order);
@@ -411,7 +411,7 @@ public class UserController {
     @Operation(summary = "处理Map数据", description = "演示动态结构的Map数据处理")
     @PostMapping("/map")
     public ResponseEntity<Map<String, Object>> processMap(
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> data) {
+            @RequestBody Map<String, Object> data) {
         data.put("processed", true);
         data.put("processedAt", LocalDateTime.now().toString());
         return ResponseEntity.ok(data);
@@ -448,7 +448,7 @@ public class UserController {
     @Operation(summary = "异步处理请求", description = "演示异步处理模式，返回处理任务ID")
     @PostMapping("/async")
     public ResponseEntity<Map<String, Object>> asyncProcess(
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> task) {
+            @RequestBody Map<String, Object> task) {
         String taskId = UUID.randomUUID().toString();
         Map<String, Object> result = new HashMap<>();
         result.put("taskId", taskId);
@@ -490,405 +490,5 @@ public class UserController {
         return ResponseEntity.ok()
                 .eTag(currentEtag)
                 .body(user);
-    }
-
-    // ==================== 内部数据模型 ====================
-
-    /**
-     * 用户实体
-     */
-    @Schema(description = "用户信息")
-    public static class User {
-        @Schema(description = "用户ID", example = "1")
-        private Long id;
-
-        @Schema(description = "用户名", example = "张三", required = true)
-        private String name;
-
-        @Schema(description = "邮箱", example = "zhangsan@example.com", required = true)
-        private String email;
-
-        @Schema(description = "年龄", example = "25", minimum = "0", maximum = "150")
-        private Integer age;
-
-        @Schema(description = "生日", example = "1999-01-01")
-        private LocalDate birthday;
-
-        @Schema(description = "用户状态")
-        private UserStatus status = UserStatus.ACTIVE;
-
-        @Schema(description = "个人简介")
-        private String bio;
-
-        @Schema(description = "创建时间")
-        private LocalDateTime createdAt;
-
-        @Schema(description = "更新时间")
-        private LocalDateTime updatedAt;
-
-        // Getters and Setters
-        public Long getId() {
-            return id;
-        }
-
-        public void setId(Long id) {
-            this.id = id;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
-        }
-
-        public Integer getAge() {
-            return age;
-        }
-
-        public void setAge(Integer age) {
-            this.age = age;
-        }
-
-        public LocalDate getBirthday() {
-            return birthday;
-        }
-
-        public void setBirthday(LocalDate birthday) {
-            this.birthday = birthday;
-        }
-
-        public UserStatus getStatus() {
-            return status;
-        }
-
-        public void setStatus(UserStatus status) {
-            this.status = status;
-        }
-
-        public String getBio() {
-            return bio;
-        }
-
-        public void setBio(String bio) {
-            this.bio = bio;
-        }
-
-        public LocalDateTime getCreatedAt() {
-            return createdAt;
-        }
-
-        public void setCreatedAt(LocalDateTime createdAt) {
-            this.createdAt = createdAt;
-        }
-
-        public LocalDateTime getUpdatedAt() {
-            return updatedAt;
-        }
-
-        public void setUpdatedAt(LocalDateTime updatedAt) {
-            this.updatedAt = updatedAt;
-        }
-    }
-
-    /**
-     * 用户状态枚举
-     */
-    @Schema(description = "用户状态")
-    public enum UserStatus {
-        @Schema(description = "激活")
-        ACTIVE,
-        @Schema(description = "未激活")
-        INACTIVE,
-        @Schema(description = "封禁")
-        BANNED,
-        @Schema(description = "待审核")
-        PENDING
-    }
-
-    /**
-     * 分页结果
-     */
-    @Schema(description = "分页结果")
-    public static class PageResult<T> {
-        @Schema(description = "数据列表")
-        private List<T> items;
-
-        @Schema(description = "总数")
-        private Long total;
-
-        @Schema(description = "当前页")
-        private Integer page;
-
-        @Schema(description = "每页数量")
-        private Integer size;
-
-        // Getters and Setters
-        public List<T> getItems() {
-            return items;
-        }
-
-        public void setItems(List<T> items) {
-            this.items = items;
-        }
-
-        public Long getTotal() {
-            return total;
-        }
-
-        public void setTotal(Long total) {
-            this.total = total;
-        }
-
-        public Integer getPage() {
-            return page;
-        }
-
-        public void setPage(Integer page) {
-            this.page = page;
-        }
-
-        public Integer getSize() {
-            return size;
-        }
-
-        public void setSize(Integer size) {
-            this.size = size;
-        }
-    }
-
-    /**
-     * 批量操作结果
-     */
-    @Schema(description = "批量操作结果")
-    public static class BatchResult {
-        @Schema(description = "成功数量")
-        private Integer successCount;
-
-        @Schema(description = "失败数量")
-        private Integer failCount;
-
-        @Schema(description = "失败详情")
-        private List<String> failDetails;
-
-        // Getters and Setters
-        public Integer getSuccessCount() {
-            return successCount;
-        }
-
-        public void setSuccessCount(Integer successCount) {
-            this.successCount = successCount;
-        }
-
-        public Integer getFailCount() {
-            return failCount;
-        }
-
-        public void setFailCount(Integer failCount) {
-            this.failCount = failCount;
-        }
-
-        public List<String> getFailDetails() {
-            return failDetails;
-        }
-
-        public void setFailDetails(List<String> failDetails) {
-            this.failDetails = failDetails;
-        }
-    }
-
-    /**
-     * 文件上传结果
-     */
-    @Schema(description = "文件上传结果")
-    public static class FileUploadResult {
-        @Schema(description = "文件名")
-        private String fileName;
-
-        @Schema(description = "文件大小（字节）")
-        private Long fileSize;
-
-        @Schema(description = "文件类型")
-        private String contentType;
-
-        @Schema(description = "文件分类")
-        private String category;
-
-        @Schema(description = "是否公开")
-        private Boolean isPublic;
-
-        @Schema(description = "访问URL")
-        private String url;
-
-        // Getters and Setters
-        public String getFileName() {
-            return fileName;
-        }
-
-        public void setFileName(String fileName) {
-            this.fileName = fileName;
-        }
-
-        public Long getFileSize() {
-            return fileSize;
-        }
-
-        public void setFileSize(Long fileSize) {
-            this.fileSize = fileSize;
-        }
-
-        public String getContentType() {
-            return contentType;
-        }
-
-        public void setContentType(String contentType) {
-            this.contentType = contentType;
-        }
-
-        public String getCategory() {
-            return category;
-        }
-
-        public void setCategory(String category) {
-            this.category = category;
-        }
-
-        public Boolean getPublic() {
-            return isPublic;
-        }
-
-        public void setPublic(Boolean aPublic) {
-            isPublic = aPublic;
-        }
-
-        public String getUrl() {
-            return url;
-        }
-
-        public void setUrl(String url) {
-            this.url = url;
-        }
-    }
-
-    /**
-     * 订单实体（用于演示嵌套对象）
-     */
-    @Schema(description = "订单信息")
-    public static class Order {
-        @Schema(description = "订单ID")
-        private Long id;
-
-        @Schema(description = "订单编号")
-        private String orderNo;
-
-        @Schema(description = "用户信息")
-        private User user;
-
-        @Schema(description = "订单项列表")
-        private List<OrderItem> items;
-
-        @Schema(description = "创建时间")
-        private LocalDateTime createdAt;
-
-        // Getters and Setters
-        public Long getId() {
-            return id;
-        }
-
-        public void setId(Long id) {
-            this.id = id;
-        }
-
-        public String getOrderNo() {
-            return orderNo;
-        }
-
-        public void setOrderNo(String orderNo) {
-            this.orderNo = orderNo;
-        }
-
-        public User getUser() {
-            return user;
-        }
-
-        public void setUser(User user) {
-            this.user = user;
-        }
-
-        public List<OrderItem> getItems() {
-            return items;
-        }
-
-        public void setItems(List<OrderItem> items) {
-            this.items = items;
-        }
-
-        public LocalDateTime getCreatedAt() {
-            return createdAt;
-        }
-
-        public void setCreatedAt(LocalDateTime createdAt) {
-            this.createdAt = createdAt;
-        }
-    }
-
-    /**
-     * 订单项
-     */
-    @Schema(description = "订单项")
-    public static class OrderItem {
-        @Schema(description = "商品ID")
-        private Long productId;
-
-        @Schema(description = "商品名称")
-        private String productName;
-
-        @Schema(description = "数量")
-        private Integer quantity;
-
-        @Schema(description = "单价")
-        private Double price;
-
-        // Getters and Setters
-        public Long getProductId() {
-            return productId;
-        }
-
-        public void setProductId(Long productId) {
-            this.productId = productId;
-        }
-
-        public String getProductName() {
-            return productName;
-        }
-
-        public void setProductName(String productName) {
-            this.productName = productName;
-        }
-
-        public Integer getQuantity() {
-            return quantity;
-        }
-
-        public void setQuantity(Integer quantity) {
-            this.quantity = quantity;
-        }
-
-        public Double getPrice() {
-            return price;
-        }
-
-        public void setPrice(Double price) {
-            this.price = price;
-        }
     }
 }

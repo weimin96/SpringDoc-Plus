@@ -210,6 +210,7 @@ onMounted(async () => {
 
     <ContentArea
       :spec-url="activeGroup?.url ?? null"
+      :context-path="activeGroup?.contextPath"
       :config="configStore.state"
       :selected-operation="selectedOperation"
       :view-mode="viewMode"

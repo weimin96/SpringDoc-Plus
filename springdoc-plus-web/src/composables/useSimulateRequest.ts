@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, type Ref, watch, toRef } from 'vue'
 import type { OperationItem } from '@/types/openapi'
 
 export interface RequestParam {
@@ -7,6 +7,8 @@ export interface RequestParam {
   value: string
   type?: string
   required?: boolean
+  description?: string
+  example?: string
 }
 
 export interface SimulateResult {
@@ -25,8 +27,13 @@ export interface CustomHeader {
 /**
  * 模拟请求 Composable
  * 支持填写参数值、发送 HTTP 请求、显示响应结果
+ * @param itemRef 操作项（响应式引用）
+ * @param contextPathRef 网关模式下的路径前缀（响应式引用）
  */
-export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
+export function useSimulateRequest(
+  itemRef: Ref<OperationItem>,
+  contextPathRef?: Ref<string | undefined>
+) {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const result = ref<SimulateResult | null>(null)
@@ -37,14 +44,26 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
 
   // 初始化参数列表
   function initParams() {
+    const item = itemRef.value
     const parameters = item.operation.parameters ?? []
-    params.value = parameters.map(p => ({
-      name: p.name,
-      in: p.in as 'path' | 'query' | 'header' | 'cookie',
-      value: '',
-      type: p.schema?.type,
-      required: p.required ?? false,
-    }))
+    params.value = parameters.map(p => {
+      // 获取 example 值
+      const example = p.example !== undefined
+        ? String(p.example)
+        : p.schema?.example !== undefined
+          ? String(p.schema.example)
+          : undefined
+
+      return {
+        name: p.name,
+        in: p.in as 'path' | 'query' | 'header' | 'cookie',
+        value: example ?? '',  // 有 example 时默认显示
+        type: p.schema?.type,
+        required: p.required ?? false,
+        description: p.description,
+        example,
+      }
+    })
 
     // 初始化请求体参数
     bodyParams.value = {}
@@ -88,8 +107,17 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
 
   // 构建完整 URL
   function buildUrl(): string {
-    const base = baseUrl || window.location.origin
+    const item = itemRef.value
+    const contextPath = contextPathRef?.value
+    const base = window.location.origin
     let path = item.path
+
+    // 如果有 contextPath（网关模式），拼接前缀
+    if (contextPath) {
+      // 确保 contextPath 以 / 开头但不以 / 结尾
+      const normalizedContextPath = contextPath.startsWith('/') ? contextPath : '/' + contextPath
+      path = normalizedContextPath.replace(/\/$/, '') + path
+    }
 
     // 替换路径参数
     params.value.filter(p => p.in === 'path').forEach(p => {
@@ -108,6 +136,7 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
 
   // 构建请求头（支持自定义请求头）
   function buildHeaders(customHeaders?: CustomHeader[]): Record<string, string> {
+    const item = itemRef.value
     const headers: Record<string, string> = {}
 
     // 添加 header 参数
@@ -134,6 +163,7 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
 
   // 根据请求体参数构建请求体 JSON
   function buildBodyFromParams(): string {
+    const item = itemRef.value
     const schema = item.operation.requestBody?.content?.[contentType.value]?.schema
     if (!schema || !schema.properties) {
       return requestBody.value
@@ -168,6 +198,7 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
 
   // 发送请求（支持自定义请求头）
   async function sendRequest(customHeaders?: CustomHeader[]) {
+    const item = itemRef.value
     loading.value = true
     error.value = null
     result.value = null
@@ -239,6 +270,20 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     bodyParams.value[name] = value
   }
 
+  // 重置请求体为默认示例
+  function resetRequestBody() {
+    const item = itemRef.value
+    const rb = item.operation.requestBody
+    if (rb?.content) {
+      const mediaType = Object.keys(rb.content)[0]
+      contentType.value = mediaType
+      if (mediaType === 'application/json') {
+        const schema = rb.content[mediaType]?.schema
+        requestBody.value = generateJsonExample(schema)
+      }
+    }
+  }
+
   // 重置
   function reset() {
     result.value = null
@@ -246,6 +291,11 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     bodyParams.value = {}
     initParams()
   }
+
+  // 监听 item 变化，自动重置
+  watch(itemRef, () => {
+    reset()
+  }, { deep: false })
 
   // 初始化
   initParams()
@@ -261,6 +311,7 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     sendRequest,
     updateParamValue,
     updateBodyParam,
+    resetRequestBody,
     reset,
   }
 }

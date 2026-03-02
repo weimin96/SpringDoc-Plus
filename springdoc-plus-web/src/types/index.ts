@@ -9,6 +9,8 @@ export type Mode = 'gateway' | 'service'
 export interface ApiGroup {
   name: string
   url: string
+  /** 用于模拟请求的 basePath（网关模式时服务可能需要前缀） */
+  contextPath?: string
 }
 
 /** 服务端返回的 UI 配置（可选字段） */

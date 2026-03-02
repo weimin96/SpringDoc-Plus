@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, toRef } from 'vue'
 import type { OperationItem } from '@/types/openapi'
 import type { SchemaObject } from '@/types/openapi'
 import MethodBadge from './MethodBadge.vue'
@@ -9,15 +9,21 @@ import { useSimulateRequest } from '@/composables/useSimulateRequest'
 const props = defineProps<{
   item: OperationItem
   schemas?: Record<string, SchemaObject>
+  contextPath?: string
 }>()
 
 const opId = computed(() => `op-${props.item.method}-${props.item.path}`)
 
-// 模拟请求
-const simulate = useSimulateRequest(props.item)
+const simulate = useSimulateRequest(
+  toRef(() => props.item),
+  toRef(() => props.contextPath)
+)
 
 // 自定义请求头
 const customHeaders = ref<Array<{ name: string; value: string }>>([])
+
+// 发送请求面板整体折叠（默认收起）
+const simulatePanelCollapsed = ref(true)
 
 function addCustomHeader() {
   customHeaders.value.push({ name: '', value: '' })
@@ -27,10 +33,19 @@ function removeCustomHeader(index: number) {
   customHeaders.value.splice(index, 1)
 }
 
-// 本地引用，用于模板访问
 const simulateParams = computed(() => simulate.params)
 const simulateRequestBody = computed(() => simulate.requestBody)
 const simulateResult = computed(() => simulate.result)
+
+const isJsonContentType = computed(() => {
+  const ct = simulate.contentType.value
+  return ct.includes('application/json')
+})
+
+const isFormContentType = computed(() => {
+  const ct = simulate.contentType.value
+  return ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')
+})
 
 const statusColors: Record<string, string> = {
   '2': 'bg-green-100 text-green-800',
@@ -68,17 +83,6 @@ const requestBodyContent = computed(() => {
 
 const responses = computed(() => Object.entries(op.value.responses ?? {}))
 
-// 请求体 Schema 解析
-interface BodyProp {
-  name: string
-  type: string
-  required: boolean
-  description?: string
-  value: string
-  isPrimitive: boolean
-}
-
-// 获取请求体 schema
 const requestBodySchema = computed(() => {
   const rb = op.value.requestBody
   if (!rb?.content) return null
@@ -87,71 +91,89 @@ const requestBodySchema = computed(() => {
   return media?.schema ?? null
 })
 
-// 解析 $ref
-function resolveRef(ref: string): SchemaObject | null {
-  if (!ref.startsWith('#/components/schemas/')) return null
-  const name = ref.replace('#/components/schemas/', '')
-  return props.schemas?.[name] ?? null
-}
-
-// 获取类型标签
-function getTypeLabel(schema: SchemaObject | undefined): string {
-  if (!schema) return 'any'
-  if (schema.$ref) {
-    const resolved = resolveRef(schema.$ref)
-    if (resolved) return getTypeLabel(resolved)
-    return schema.$ref.split('/').pop() ?? 'object'
-  }
-  if (schema.type === 'array') {
-    const itemLabel = getTypeLabel(schema.items)
-    return `${itemLabel}[]`
-  }
-  return schema.format ? `${schema.type}(${schema.format})` : schema.type ?? 'any'
-}
-
-// 判断是否为原始类型
-function isPrimitiveType(schema: SchemaObject | undefined): boolean {
-  if (!schema) return false
-  if (schema.$ref) {
-    const resolved = resolveRef(schema.$ref)
-    return isPrimitiveType(resolved ?? undefined)
-  }
-  const t = schema.type
-  return t === 'string' || t === 'number' || t === 'integer' || t === 'boolean'
-}
-
-// 请求体参数列表
-const requestBodyProps = computed<BodyProp[]>(() => {
-  const schema = requestBodySchema.value
+// 从 schema 中提取字段列表（用于 form 表单展示）
+function getSchemaFields(schema: SchemaObject | null): Array<{
+  name: string
+  type: string
+  required: boolean
+  description: string
+  example: string
+  enum?: string[]
+}> {
   if (!schema) return []
-
-  // 解引用
-  let resolved = schema
-  if (schema.$ref) {
-    resolved = resolveRef(schema.$ref) ?? schema
-  }
-
-  if (!resolved.properties) return []
-
-  const bodyParams = simulate.bodyParams.value
-
-  return Object.entries(resolved.properties).map(([name, propSchema]) => {
-    const p = propSchema as SchemaObject
+  const resolvedSchema = resolveSchemaRef(schema)
+  if (!resolvedSchema?.properties) return []
+  const requiredFields = resolvedSchema.required ?? []
+  return Object.entries(resolvedSchema.properties).map(([name, fieldSchema]) => {
+    const resolved = resolveSchemaRef(fieldSchema as SchemaObject)
     return {
       name,
-      type: getTypeLabel(p),
-      required: resolved.required?.includes(name) ?? false,
-      description: p.description,
-      value: bodyParams[name] ?? '',
-      isPrimitive: isPrimitiveType(p),
+      type: resolved?.type ?? 'string',
+      required: requiredFields.includes(name),
+      description: resolved?.description ?? '',
+      example: String(resolved?.example ?? resolved?.default ?? ''),
+      enum: resolved?.enum ? (resolved.enum as string[]) : undefined,
     }
   })
-})
-
-// 更新请求体参数
-function updateBodyProp(name: string, value: string) {
-  simulate.updateBodyParam(name, value)
 }
+
+// 解析 $ref
+function resolveSchemaRef(schema: SchemaObject): SchemaObject | null {
+  if (!schema) return null
+  if ((schema as any).$ref && props.schemas) {
+    const refName = (schema as any).$ref.split('/').pop()
+    return props.schemas[refName] ?? null
+  }
+  return schema
+}
+
+// 生成 JSON example
+function generateJsonExample(schema: SchemaObject | null): string {
+  if (!schema) return '{}'
+  const resolvedSchema = resolveSchemaRef(schema)
+  if (!resolvedSchema) return '{}'
+  return JSON.stringify(buildExample(resolvedSchema), null, 2)
+}
+
+function buildExample(schema: SchemaObject): unknown {
+  if (!schema) return null
+  const resolved = resolveSchemaRef(schema)
+  if (!resolved) return null
+
+  if (resolved.example !== undefined) return resolved.example
+  if (resolved.default !== undefined) return resolved.default
+
+  switch (resolved.type) {
+    case 'object': {
+      const obj: Record<string, unknown> = {}
+      if (resolved.properties) {
+        for (const [key, val] of Object.entries(resolved.properties)) {
+          obj[key] = buildExample(val as SchemaObject)
+        }
+      }
+      return obj
+    }
+    case 'array':
+      return resolved.items ? [buildExample(resolved.items as SchemaObject)] : []
+    case 'string':
+      return resolved.enum?.[0] ?? 'string'
+    case 'integer':
+    case 'number':
+      return 0
+    case 'boolean':
+      return false
+    default:
+      return null
+  }
+}
+
+// form 字段的输入状态（用 name -> value 的 map）
+const formFieldValues = ref<Record<string, string>>({})
+
+// 当 schema 字段列表可用时，初始化 form 字段值
+const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
+
+
 </script>
 
 <template>
@@ -181,124 +203,259 @@ function updateBodyProp(name: string, value: string) {
       <p v-if="op.description" class="mb-4 text-[13px] text-[var(--c-muted)]">{{ op.description }}</p>
       <p v-else-if="op.summary" class="mb-4 text-[13px] text-[var(--c-muted)]">{{ op.summary }}</p>
 
-      <!-- Simulate request panel -->
+      <!-- ===== Simulate Request Panel ===== -->
       <div class="mb-4 rounded-lg border border-[var(--c-border)] bg-white">
-        <div class="flex items-center gap-2 border-b border-[var(--c-border)] p-3">
-          <button
-            class="rounded-lg bg-[var(--c-primary)] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="simulate.loading.value"
-            @click="simulate.sendRequest(customHeaders)"
-          >
-            {{ simulate.loading.value ? '发送中...' : '发送请求' }}
-          </button>
-          <button
-            class="rounded-lg border border-[var(--c-border)] bg-white px-3 py-2 text-[13px] text-[var(--c-text)] transition-colors hover:bg-gray-50"
-            @click="simulate.reset()"
-          >
-            重置
-          </button>
-        </div>
 
-        <!-- Request params editor -->
-        <div v-if="simulateParams.value.length" class="border-b border-[var(--c-border)] p-3">
-          <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">请求参数</h4>
-          <div class="space-y-2">
-            <div v-for="param in simulateParams.value" :key="param.name" class="flex items-center gap-2">
-              <span class="w-24 shrink-0 font-mono text-[12px]">{{ param.name }}</span>
-              <span
-                class="w-12 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-center"
-                :class="{
-                  'bg-blue-100 text-blue-700': param.in === 'path',
-                  'bg-green-100 text-green-700': param.in === 'query',
-                  'bg-purple-100 text-purple-700': param.in === 'header',
-                  'bg-amber-100 text-amber-700': param.in === 'cookie',
-                }"
-              >
-                {{ param.in }}
-              </span>
-              <input
-                :value="param.value"
-                @input="param.value = ($event.target as HTMLInputElement).value"
-                class="flex-1 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
-                :placeholder="param.type || 'Value'"
-              />
-              <span v-if="param.required" class="shrink-0 text-[10px] text-red-500">必填</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Custom headers -->
-        <div class="border-b border-[var(--c-border)] p-3">
-          <div class="mb-2 flex items-center justify-between">
-            <h4 class="text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">自定义请求头</h4>
-            <button
-              class="rounded border border-[var(--c-border)] px-2 py-0.5 text-[11px] text-[var(--c-text)] hover:bg-gray-50"
-              @click="addCustomHeader"
+        <!-- Panel header with collapse toggle -->
+        <div class="flex items-center justify-between border-b border-[var(--c-border)] px-3 py-2.5">
+          <button
+            class="flex items-center gap-2 text-left"
+            @click="simulatePanelCollapsed = !simulatePanelCollapsed"
+          >
+            <svg
+              class="h-4 w-4 text-[var(--c-muted)] transition-transform duration-200"
+              :class="simulatePanelCollapsed ? '-rotate-90' : ''"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             >
-              + 添加
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+            <span class="text-[12px] font-semibold text-[var(--c-text)]">调试请求</span>
+          </button>
+          <div class="flex items-center gap-2">
+            <button
+              class="rounded-lg border border-[var(--c-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--c-text)] transition-colors hover:bg-gray-50"
+              @click="simulate.reset(); formFieldValues = {}"
+            >
+              重置
+            </button>
+            <button
+              class="rounded-lg bg-[var(--c-primary)] px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="simulate.loading.value"
+              @click="simulate.sendRequest(customHeaders)"
+            >
+              {{ simulate.loading.value ? '发送中...' : '发送请求' }}
             </button>
           </div>
-          <div v-if="customHeaders.length" class="space-y-2">
-            <div v-for="(header, index) in customHeaders" :key="index" class="flex items-center gap-2">
-              <input
-                v-model="header.name"
-                class="w-32 shrink-0 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
-                placeholder="Header Name"
-              />
-              <input
-                v-model="header.value"
-                class="flex-1 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
-                placeholder="Header Value"
-              />
-              <button
-                class="shrink-0 rounded border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
-                @click="removeCustomHeader(index)"
-              >
-                删除
-              </button>
-            </div>
-          </div>
-          <p v-else class="text-[11px] text-[var(--c-muted)]">点击"添加"按钮添加自定义请求头</p>
         </div>
 
-        <!-- Request body params -->
-        <div v-if="requestBodySchema" class="border-b border-[var(--c-border)] p-3">
-          <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">
-            请求体参数
-            <span v-if="op.requestBody?.required" class="ml-1 text-red-500 normal-case">（必填）</span>
-          </h4>
-          <div class="space-y-2">
-            <div v-for="prop in requestBodyProps" :key="prop.name" class="flex items-start gap-2">
-              <span class="w-32 shrink-0 font-mono text-[12px] pt-1">{{ prop.name }}</span>
-              <span class="w-20 shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-center text-[var(--c-muted)] mt-1">
-                {{ prop.type }}
-              </span>
-              <input
-                v-if="prop.isPrimitive"
-                :value="prop.value"
-                @input="updateBodyProp(prop.name, ($event.target as HTMLInputElement).value)"
-                class="flex-1 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
-                :placeholder="prop.description || prop.type"
-              />
-              <textarea
-                v-else
-                :value="prop.value"
-                @input="updateBodyProp(prop.name, ($event.target as HTMLTextAreaElement).value)"
-                rows="2"
-                class="flex-1 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] font-mono outline-none focus:border-[var(--c-primary)]"
-                :placeholder="prop.description || 'JSON'"
-              />
-              <span v-if="prop.required" class="shrink-0 text-[10px] text-red-500 pt-1">必填</span>
+        <div v-if="!simulatePanelCollapsed">
+
+          <!-- ===== Unified Request Config (always visible) ===== -->
+          <div class="border-b border-[var(--c-border)]">
+            <div class="px-3 pb-4 pt-3 space-y-4">
+
+              <!-- Path / Query Params -->
+              <div v-if="simulateParams.value.length">
+                <p class="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">路径 / 查询参数</p>
+                <div class="space-y-2">
+                  <div v-for="param in simulateParams.value" :key="param.name" class="flex items-center gap-2">
+                    <span class="w-28 shrink-0 font-mono text-[12px] truncate" :title="param.name">{{ param.name }}</span>
+                    <span
+                      class="w-12 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-center"
+                      :class="{
+                        'bg-blue-100 text-blue-700': param.in === 'path',
+                        'bg-green-100 text-green-700': param.in === 'query',
+                        'bg-purple-100 text-purple-700': param.in === 'header',
+                        'bg-amber-100 text-amber-700': param.in === 'cookie',
+                      }"
+                    >
+                      {{ param.in }}
+                    </span>
+                    <input
+                      :value="param.value"
+                      @input="param.value = ($event.target as HTMLInputElement).value"
+                      class="flex-1 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
+                      :placeholder="param.example !== undefined ? String(param.example) : (param.type || 'Value')"
+                    />
+                    <span v-if="param.required" class="shrink-0 text-[10px] text-red-500">必填</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Custom Headers -->
+              <div>
+                <div class="mb-2 flex items-center justify-between">
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">自定义请求头</p>
+                  <button
+                    class="rounded border border-[var(--c-border)] px-2 py-0.5 text-[11px] text-[var(--c-text)] hover:bg-gray-50"
+                    @click="addCustomHeader"
+                  >
+                    + 添加
+                  </button>
+                </div>
+                <div v-if="customHeaders.length" class="space-y-2">
+                  <div v-for="(header, index) in customHeaders" :key="index" class="flex items-center gap-2">
+                    <input
+                      v-model="header.name"
+                      class="w-32 shrink-0 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
+                      placeholder="Header Name"
+                    />
+                    <input
+                      v-model="header.value"
+                      class="flex-1 rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
+                      placeholder="Header Value"
+                    />
+                    <button
+                      class="shrink-0 rounded border border-red-200 px-2 py-1 text-[11px] text-red-600 hover:bg-red-50"
+                      @click="removeCustomHeader(index)"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+                <p v-else class="text-[11px] text-[var(--c-muted)]">暂无自定义请求头</p>
+              </div>
+
+              <!-- Request Body -->
+              <div v-if="requestBodySchema">
+                <div class="mb-2 flex items-center justify-between">
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">
+                    请求体
+                    <span class="ml-1 rounded bg-gray-100 px-1.5 py-px font-mono text-[10px] normal-case text-[var(--c-muted)]">
+                      {{ simulate.contentType.value }}
+                    </span>
+                    <span v-if="op.requestBody?.required" class="ml-1 text-red-500 normal-case">（必填）</span>
+                  </p>
+                  <button
+                    class="rounded border border-[var(--c-border)] px-2 py-0.5 text-[11px] text-[var(--c-text)] hover:bg-gray-50"
+                    @click="simulate.resetRequestBody(); formFieldValues = {}"
+                  >
+                    重置
+                  </button>
+                </div>
+
+                <!-- application/x-www-form-urlencoded or multipart/form-data: field list -->
+                <div v-if="isFormContentType">
+                  <div class="rounded-lg border border-[var(--c-border)] bg-gray-50 overflow-hidden">
+                    <table class="w-full border-collapse text-[12px]">
+                      <thead>
+                        <tr class="border-b border-[var(--c-border)] bg-gray-100">
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">字段名</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">类型</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">必填</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">说明</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">值</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="field in schemaFields"
+                          :key="field.name"
+                          class="border-b border-[var(--c-border)] last:border-0"
+                        >
+                          <td class="px-3 py-2 font-mono font-medium text-[var(--c-text)]">
+                            {{ field.name }}
+                          </td>
+                          <td class="px-3 py-2 font-mono text-[var(--c-muted)] text-[11px]">{{ field.type }}</td>
+                          <td class="px-3 py-2">
+                            <span v-if="field.required" class="text-red-500 text-[11px]">必填</span>
+                            <span v-else class="text-[var(--c-muted)] text-[11px]">-</span>
+                          </td>
+                          <td class="px-3 py-2 text-[var(--c-muted)] max-w-[120px] truncate" :title="field.description">
+                            {{ field.description || '-' }}
+                          </td>
+                          <td class="px-3 py-2">
+                            <!-- enum select -->
+                            <select
+                              v-if="field.enum && field.enum.length"
+                              v-model="formFieldValues[field.name]"
+                              class="w-full rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)] bg-white"
+                            >
+                              <option value="">-- 请选择 --</option>
+                              <option v-for="opt in field.enum" :key="opt" :value="opt">{{ opt }}</option>
+                            </select>
+                            <!-- boolean toggle -->
+                            <select
+                              v-else-if="field.type === 'boolean'"
+                              v-model="formFieldValues[field.name]"
+                              class="w-full rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)] bg-white"
+                            >
+                              <option value="">-- 请选择 --</option>
+                              <option value="true">true</option>
+                              <option value="false">false</option>
+                            </select>
+                            <!-- default text input -->
+                            <input
+                              v-else
+                              v-model="formFieldValues[field.name]"
+                              class="w-full rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
+                              :placeholder="field.example || field.type"
+                            />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- application/json: JSON editor with generated example -->
+                <div v-else-if="isJsonContentType">
+                  <!-- Schema fields overview -->
+                  <div v-if="schemaFields.length" class="mb-2 rounded-lg border border-[var(--c-border)] bg-gray-50 overflow-hidden">
+                    <table class="w-full border-collapse text-[12px]">
+                      <thead>
+                        <tr class="border-b border-[var(--c-border)] bg-gray-100">
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">字段名</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">类型</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">必填</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">示例值</th>
+                          <th class="px-3 py-2 text-left font-semibold text-[var(--c-muted)] text-[11px]">说明</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          v-for="field in schemaFields"
+                          :key="field.name"
+                          class="border-b border-[var(--c-border)] last:border-0"
+                        >
+                          <td class="px-3 py-2 font-mono font-medium text-[var(--c-text)]">{{ field.name }}</td>
+                          <td class="px-3 py-2 font-mono text-[var(--c-muted)] text-[11px]">{{ field.type }}</td>
+                          <td class="px-3 py-2">
+                            <span v-if="field.required" class="text-red-500 text-[11px]">必填</span>
+                            <span v-else class="text-[var(--c-muted)] text-[11px]">-</span>
+                          </td>
+                          <td class="px-3 py-2 font-mono text-[11px] text-[var(--c-muted)]">
+                            <span v-if="field.enum" class="text-[10px]">{{ field.enum.join(' | ') }}</span>
+                            <span v-else>{{ field.example || '-' }}</span>
+                          </td>
+                          <td class="px-3 py-2 text-[var(--c-muted)] max-w-[160px] truncate" :title="field.description">
+                            {{ field.description || '-' }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <!-- JSON editor -->
+                  <textarea
+                    v-model="simulate.requestBody.value"
+                    rows="8"
+                    class="w-full resize-y rounded border border-[var(--c-border)] bg-gray-50 p-2 font-mono text-[11px] outline-none focus:border-[var(--c-primary)]"
+                    spellcheck="false"
+                    :placeholder="generateJsonExample(requestBodySchema)"
+                  />
+                  <p class="mt-1 text-[10px] text-[var(--c-muted)]">
+                    💡 上方为示例 JSON，可直接修改后发送
+                  </p>
+                </div>
+
+                <!-- Other content types -->
+                <div v-else>
+                  <input
+                    v-model="simulate.requestBody.value"
+                    class="w-full rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)]"
+                    placeholder="Request body"
+                  />
+                </div>
+              </div>
+
             </div>
           </div>
-        </div>
 
-        <!-- Response -->
-        <div v-if="simulateResult.value || simulate.error.value" class="p-3">
-          <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">
-            响应结果
-            <span v-if="simulateResult.value" class="ml-2 font-normal normal-case">
-              <span
+          <!-- ===== Response Result ===== -->
+          <div v-if="simulateResult.value || simulate.error.value" class="border-t border-[var(--c-border)] px-3 py-3">
+            <div class="mb-2 flex items-center gap-2">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">响应结果</p>
+              <span v-if="simulateResult.value"
                 class="rounded px-2 py-0.5 font-mono text-[11px] font-bold"
                 :class="{
                   'bg-green-100 text-green-800': simulateResult.value.status < 300,
@@ -309,33 +466,34 @@ function updateBodyProp(name: string, value: string) {
               >
                 {{ simulateResult.value.status }} {{ simulateResult.value.statusText }}
               </span>
-              <span class="ml-2 text-[var(--c-muted)]">{{ simulateResult.value.duration }}ms</span>
-            </span>
-          </h4>
+              <span v-if="simulateResult.value" class="text-[11px] text-[var(--c-muted)]">{{ simulateResult.value.duration }}ms</span>
+            </div>
 
-          <!-- Error -->
-          <div v-if="simulate.error.value" class="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">
-            {{ simulate.error.value }}
-          </div>
+            <!-- Error -->
+            <div v-if="simulate.error.value" class="rounded-lg border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">
+              {{ simulate.error.value }}
+            </div>
 
-          <!-- Response headers -->
-          <div v-if="simulateResult.value?.headers" class="mb-2 rounded-lg border border-[var(--c-border)] bg-gray-50 p-2">
-            <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">响应头</p>
-            <div v-for="(value, key) in simulateResult.value.headers" :key="key" class="flex text-[11px]">
-              <span class="w-32 shrink-0 font-mono text-[var(--c-muted)]">{{ key }}:</span>
-              <span class="flex-1 truncate font-mono">{{ value }}</span>
+            <!-- Response headers -->
+            <div v-if="simulateResult.value?.headers" class="mb-2 rounded-lg border border-[var(--c-border)] bg-gray-50 p-2">
+              <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">响应头</p>
+              <div v-for="(value, key) in simulateResult.value.headers" :key="key" class="flex text-[11px]">
+                <span class="w-32 shrink-0 font-mono text-[var(--c-muted)]">{{ key }}:</span>
+                <span class="flex-1 truncate font-mono">{{ value }}</span>
+              </div>
+            </div>
+
+            <!-- Response body -->
+            <div v-if="simulateResult.value?.data !== undefined" class="rounded-lg border border-[var(--c-border)] bg-gray-50 p-2">
+              <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">响应体</p>
+              <pre class="max-h-[400px] overflow-auto text-[11px]">{{ JSON.stringify(simulateResult.value.data, null, 2) }}</pre>
             </div>
           </div>
 
-          <!-- Response body -->
-          <div v-if="simulateResult.value?.data !== undefined" class="rounded-lg border border-[var(--c-border)] bg-gray-50 p-2">
-            <p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--c-muted)]">响应体</p>
-            <pre class="max-h-[400px] overflow-auto text-[11px]">{{ JSON.stringify(simulateResult.value.data, null, 2) }}</pre>
-          </div>
         </div>
       </div>
 
-      <!-- Parameters -->
+      <!-- ===== Parameters (docs) ===== -->
       <template v-if="parameters.length">
         <div class="mb-4">
           <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">参数</h4>
@@ -379,7 +537,7 @@ function updateBodyProp(name: string, value: string) {
         </div>
       </template>
 
-      <!-- Request body -->
+      <!-- ===== Request Body (docs) ===== -->
       <template v-if="requestBodyContent">
         <div class="mb-4">
           <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">
@@ -395,7 +553,7 @@ function updateBodyProp(name: string, value: string) {
         </div>
       </template>
 
-      <!-- Responses -->
+      <!-- ===== Responses (docs) ===== -->
       <template v-if="responses.length">
         <div>
           <h4 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">响应</h4>

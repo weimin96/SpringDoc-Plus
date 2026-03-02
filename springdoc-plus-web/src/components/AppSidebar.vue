@@ -61,20 +61,33 @@ function isTagExpanded(tagName: string): boolean {
     style="transition-timing-function:cubic-bezier(.4,0,.2,1)"
   >
     <!-- Search -->
-    <div class="relative flex-shrink-0 px-3 pb-1.5 pt-3">
-      <svg
-        class="pointer-events-none absolute left-[22px] top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--c-muted)]"
-        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-      <input
-        v-model="keyword"
-        class="w-full rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] py-1.5 pl-[30px] pr-2.5 text-xs text-[var(--c-text)] outline-none transition-[border-color,box-shadow] placeholder:text-[#b0b7c3] focus:border-[var(--c-primary)] focus:bg-white focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.1)]"
-        placeholder="搜索文档组…"
-        autocomplete="off"
-      />
+    <div class="relative flex-shrink-0 px-3 py-2.5">
+      <div class="relative">
+        <svg
+          class="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[var(--c-muted)]"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input
+          v-model="keyword"
+          class="w-full rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] py-1.5 pl-[30px] pr-7 text-xs text-[var(--c-text)] outline-none transition-[border-color,box-shadow] placeholder:text-[#b0b7c3] focus:border-[var(--c-primary)] focus:bg-white focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.1)]"
+          placeholder="搜索文档组…"
+          autocomplete="off"
+        />
+        <button
+          v-if="keyword"
+          class="absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 cursor-pointer rounded-full text-[var(--c-muted)] hover:text-[var(--c-text)]"
+          @click="keyword = ''"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="m15 9-6 6" />
+            <path d="m9 9 6 6" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Nav -->
@@ -144,26 +157,31 @@ function isTagExpanded(tagName: string): boolean {
             <div
               v-for="op in tagGroup.operations"
               :key="`${op.method}-${op.path}`"
-              class="mb-0.5 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-[var(--c-muted)] hover:bg-[var(--c-bg)] hover:text-[var(--c-text)]"
+              class="mb-0.5 cursor-pointer rounded-md px-2 py-1.5 text-[11px] text-[var(--c-muted)] hover:bg-[var(--c-bg)] hover:text-[var(--c-text)]"
               :class="activeUrl === op.path ? 'bg-[var(--c-primary-light)] !text-[var(--c-primary)]' : ''"
               @click.stop="emit('selectOperation', { method: op.method, path: op.path, summary: op.operation.summary })"
             >
-              <span
-                class="shrink-0 px-1 py-px font-mono font-bold text-[9px]"
-                :class="{
-                  'text-[#3b82f6]': op.method === 'get',
-                  'text-[#10b981]': op.method === 'post',
-                  'text-[#f59e0b]': op.method === 'put',
-                  'text-[#ef4444]': op.method === 'delete',
-                  'text-[#8b5cf6]': op.method === 'patch',
-                  'text-[#eab308]': op.method === 'head',
-                  'text-[#71717a]': op.method === 'options',
-                  'text-[#64748b]': op.method === 'trace',
-                }"
-              >
-                {{ op.method.toUpperCase() }}
-              </span>
-              <span class="truncate font-mono">{{ op.path }}</span>
+              <div class="truncate text-[var(--c-text)]" :class="{ 'font-medium': activeUrl === op.path }">
+                {{ op.operation.summary || op.path }}
+              </div>
+              <div v-if="op.operation.summary" class="mt-0.5 flex items-center gap-2 truncate text-[10px] opacity-70">
+                <span
+                  class="shrink-0 px-1 py-px font-mono font-bold text-[9px]"
+                  :class="{
+                    'text-[#3b82f6]': op.method === 'get',
+                    'text-[#10b981]': op.method === 'post',
+                    'text-[#f59e0b]': op.method === 'put',
+                    'text-[#ef4444]': op.method === 'delete',
+                    'text-[#8b5cf6]': op.method === 'patch',
+                    'text-[#eab308]': op.method === 'head',
+                    'text-[#71717a]': op.method === 'options',
+                    'text-[#64748b]': op.method === 'trace',
+                  }"
+                >
+                  {{ op.method.toUpperCase() }}
+                </span>
+                <span class="truncate font-mono">{{ op.path }}</span>
+              </div>
             </div>
           </div>
         </template>

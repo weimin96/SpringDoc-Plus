@@ -10,6 +10,7 @@ type ViewMode = 'overview' | 'operation'
 const props = defineProps<{
   specUrl: string | null
   config: MergedConfig
+  contextPath?: string
   selectedOperation?: { method: string; path: string; summary?: string } | null
   viewMode?: ViewMode
 }>()
@@ -184,6 +185,7 @@ const selectedOpData = computed(() => {
           <OperationPanel
             :item="selectedOpData"
             :schemas="schemas"
+            :context-path="contextPath"
           />
         </template>
 
