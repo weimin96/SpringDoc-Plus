@@ -1,0 +1,42 @@
+/* ═══════════════════════════════════════════════════
+   Design Tokens — @theme registers Tailwind utilities
+   :root aliases allow use in non-Tailwind CSS (swagger overrides)
+═══════════════════════════════════════════════════ */
+
+@theme {
+  --color-bg:            #f4f6f9;
+  --color-surface:       #fff;
+  --color-border:        #e4e8ef;
+  --color-text:          #111827;
+  --color-muted:         #6b7280;
+  --color-primary:       #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-danger:        #ef4444;
+  --color-danger-light:  #fef2f2;
+  --color-success:       #22c55e;
+  --color-warning:       #f59e0b;
+
+  --font-family-sans: "Inter", "PingFang SC", "Hiragino Sans GB", system-ui, -apple-system, sans-serif;
+  --font-family-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+
+  --shadow-modal: 0 24px 64px rgb(0 0 0 / 16%), 0 0 0 1px rgb(0 0 0 / 6%);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+:root {
+  --c-bg:            var(--color-bg);
+  --c-surface:       var(--color-surface);
+  --c-border:        var(--color-border);
+  --c-text:          var(--color-text);
+  --c-muted:         var(--color-muted);
+  --c-primary:       var(--color-primary);
+  --c-primary-hover: var(--color-primary-hover);
+  --c-primary-light: var(--color-primary-light);
+  --c-danger:        var(--color-danger);
+  --c-success:       var(--color-success);
+  --c-warning:       var(--color-warning);
+  --font-sans:       var(--font-family-sans);
+  --font-mono:       var(--font-family-mono);
+  --shadow-modal:    var(--shadow-modal);
+}

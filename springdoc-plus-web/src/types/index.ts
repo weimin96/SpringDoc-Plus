@@ -1,28 +1,36 @@
+/* ═══════════════════════════════════════════
+   Types
+═══════════════════════════════════════════ */
+
+/** 进入模式 */
+export type Mode = 'gateway' | 'service'
+
+/** 文档组（网关模式） */
 export interface ApiGroup {
   name: string
   url: string
 }
 
+/** 服务端返回的 UI 配置（可选字段） */
 export interface ServerUiConfig {
-  tagsSorter?: 'alpha' | 'order'
+  tagsSorter?:       'alpha' | 'order'
   operationsSorter?: 'alpha' | 'order'
   gatewayBasicEnabled?: boolean
-  authEnabled?: boolean
-  authHeaderName?: string
+  authEnabled?:      boolean
+  authHeaderName?:   string
   authDefaultPrefix?: string
-  authPersist?: boolean
+  authPersist?:      boolean
 }
 
+/** 用户本地持久化的配置 */
 export interface LocalUiConfig {
-  tagsSorter?: 'alpha' | 'order'
-  operationsSorter?: 'alpha' | 'order'
-  authEnabled?: boolean
-  authHeaderName?: string
+  tagsSorter?:        'alpha' | 'order'
+  operationsSorter?:  'alpha' | 'order'
+  authEnabled?:       boolean
+  authHeaderName?:    string
   authDefaultPrefix?: string
-  authValue?: string
-  authPersist?: boolean
-  theme?: 'light' | 'dark'
-  sidebarCollapsed?: boolean
+  authValue?:         string
+  authPersist?:       boolean
 }
 
 export interface MergedConfig extends ServerUiConfig, LocalUiConfig {}

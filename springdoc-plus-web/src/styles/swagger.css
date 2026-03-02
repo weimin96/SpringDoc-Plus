@@ -1,0 +1,6 @@
+/* ═══════════════════════════════════════════════════
+   This file is intentionally minimal.
+   Swagger UI overrides are no longer needed because
+   the UI is now rendered by our own custom components.
+   Custom component styles live in each .vue file via Tailwind.
+═══════════════════════════════════════════════════ */

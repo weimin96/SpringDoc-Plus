@@ -54,7 +54,38 @@ mvn -q spring-boot:run
 - `SpringdocPlusGatewayHttpBasic`: Basic 保护配置
 
 ### springdoc-plus-ui
-前端静态资源，以 webjar 方式被 starter 引入。
+保留空的 Maven 模块（用于兼容性），实际前端代码已迁移至 springdoc-plus-web。
+
+### springdoc-plus-web
+前端模块，基于 Vue 3 + TypeScript + Tailwind CSS v4 + Vite 7 构建的自实现 OpenAPI 文档 UI。
+
+**核心特性**：
+- 无第三方运行时依赖（仅 vue），自实现 OpenAPI 3.x 解析与渲染
+- 支持双模式自动检测：网关模式 / 子服务模式
+- 使用 Tailwind CSS v4 的 @theme 注册 design token
+
+**前端开发命令**：
+```bash
+cd springdoc-plus-web
+npm install
+npm run dev        # 开发服务器，http://localhost:3000
+npm run build      # 构建生产版本到 dist/
+npm run format     # Prettier 格式化
+npm run lint:style # Stylelint 检查
+```
+
+**前端架构**：
+- `App.vue`：顶层编排，管理 mode/groups/activeGroup/sidebarCollapsed 状态
+- `ContentArea.vue`：主内容区，处理 OpenAPI spec 加载、搜索过滤、Schema 展示
+- `useOpenApi.ts`：OpenAPI spec 解析 + tag/op 分组 + 排序
+- `SchemaView.vue`：Schema 递归渲染，支持 $ref 解引用
+- `useApi.ts`：模式检测 + 数据获取（网关分组列表 / 子服务 spec 探测）
+- `useConfig.ts`：localStorage 配置管理（auth 持久化等）
+
+**设计模式**：
+- `$ref` 解引用通过 `components.schemas` 映射实现
+- Tag 分组：根据 `spec.tags` 预填充顺序，或根据 operation.tags 动态创建
+- 排序策略：支持通过 `x-order` 字段或 alpha 排序
 
 ### springdoc-plus-openapi3-spring-boot-starter
 单服务 OpenAPI3 文档的 starter：
@@ -129,3 +160,30 @@ discover 模式需要：
 3. 排序策略：
    - 通过 `order` 字段控制分组顺序
    - 支持标签和操作的排序策略
+
+## 前端构建与集成
+
+### 构建步骤
+
+```bash
+cd springdoc-plus-web
+npm install
+npm run build
+```
+
+构建产物位于 `springdoc-plus-web/dist/` 目录。
+
+### 集成到 Spring Boot
+
+将构建产物复制到 starter 模块的 resources 目录：
+
+```bash
+cp -r springdoc-plus-web/dist/* springdoc-plus-gateway-spring-boot-starter/src/main/resources/META-INF/resources/springdoc-plus-ui/
+```
+
+或者使用 Maven 资源插件自动复制（需在 starter 的 pom.xml 中配置）。
+
+### 前端资源访问
+
+- 入口页面：`/doc.html`
+- 分组列表接口：`/springdoc-plus-gateway/openapi/groups`

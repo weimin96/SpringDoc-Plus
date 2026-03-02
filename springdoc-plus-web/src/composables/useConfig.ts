@@ -1,17 +1,14 @@
 import { reactive } from 'vue'
-import type { LocalUiConfig, MergedConfig, ServerUiConfig } from '../types'
+import type { LocalUiConfig, MergedConfig, ServerUiConfig } from '@/types'
 
 const LS_KEY = 'springdoc-plus.ui'
 
 export function getLocalConfig(): LocalUiConfig {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || '{}')
-  } catch {
-    return {}
-  }
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') }
+  catch { return {} }
 }
 
-export function setLocalConfig(cfg: LocalUiConfig) {
+export function setLocalConfig(cfg: Omit<LocalUiConfig, 'authValue'> & { authValue?: string }) {
   localStorage.setItem(LS_KEY, JSON.stringify(cfg))
 }
 
@@ -26,15 +23,14 @@ export function mergeConfig(server: ServerUiConfig, local: LocalUiConfig): Merge
 export function useConfig(serverCfg: ServerUiConfig) {
   const state = reactive<MergedConfig>(mergeConfig(serverCfg, getLocalConfig()))
 
-  function apply(local: LocalUiConfig) {
+  function applyLocal(local: LocalUiConfig) {
     if (local.authPersist) {
       setLocalConfig(local)
     } else {
-      const { authValue: _, ...rest } = local
+      const { authValue: _v, ...rest } = local
       setLocalConfig(rest)
     }
-    const fresh = mergeConfig(serverCfg, getLocalConfig())
-    Object.assign(state, fresh)
+    Object.assign(state, mergeConfig(serverCfg, getLocalConfig()))
   }
 
   function clear() {
@@ -42,5 +38,5 @@ export function useConfig(serverCfg: ServerUiConfig) {
     Object.assign(state, mergeConfig(serverCfg, {}))
   }
 
-  return { state, apply, clear }
+  return { state, applyLocal, clear }
 }
