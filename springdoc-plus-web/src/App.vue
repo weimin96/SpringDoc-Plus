@@ -20,6 +20,10 @@ const sidebarCollapsed = ref(false)
 const showSettings     = ref(false)
 const serverConfig     = ref<ServerUiConfig>({})
 
+// 视图模式：overview（概览）或 operation（接口详情）
+type ViewMode = 'overview' | 'operation'
+const viewMode = ref<ViewMode>('overview')
+
 // 当前选中的接口（用于侧边栏点击定位）
 const selectedOperation = ref<{ method: string; path: string; summary?: string } | null>(null)
 
@@ -125,10 +129,17 @@ async function loadSpec(url: string) {
 function selectGroup(group: ApiGroup) {
   activeGroup.value = group
   selectedOperation.value = null
+  viewMode.value = 'overview'
 }
 
 function onSelectOperation(op: { method: string; path: string; summary?: string }) {
   selectedOperation.value = op
+  viewMode.value = 'operation'
+}
+
+function onReturnToOverview() {
+  selectedOperation.value = null
+  viewMode.value = 'overview'
 }
 
 function onApply(local: LocalUiConfig) {
@@ -201,7 +212,8 @@ onMounted(async () => {
       :spec-url="activeGroup?.url ?? null"
       :config="configStore.state"
       :selected-operation="selectedOperation"
-      @operation-clicked="selectedOperation = null"
+      :view-mode="viewMode"
+      @operation-clicked="onReturnToOverview"
     />
   </div>
 

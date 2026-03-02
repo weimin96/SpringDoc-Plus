@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import TagSection from './swagger/TagSection.vue'
 import SchemaView from './swagger/SchemaView.vue'
+import OperationPanel from './swagger/OperationPanel.vue'
 import { useOpenApi } from '@/composables/useOpenApi'
 import type { MergedConfig } from '@/types'
+
+type ViewMode = 'overview' | 'operation'
 
 const props = defineProps<{
   specUrl: string | null
   config: MergedConfig
   selectedOperation?: { method: string; path: string; summary?: string } | null
+  viewMode?: ViewMode
 }>()
 
 const emit = defineEmits<{
@@ -23,39 +26,22 @@ watch(
   { immediate: true },
 )
 
-const filterKeyword = ref('')
-
-const filteredGroups = computed(() => {
-  const kw = filterKeyword.value.trim().toLowerCase()
-  if (!kw) return tagGroups.value
-  return tagGroups.value
-    .map((g) => ({
-      ...g,
-      operations: g.operations.filter(
-        (op) =>
-          op.path.toLowerCase().includes(kw) ||
-          op.operation.summary?.toLowerCase().includes(kw) ||
-          op.operation.operationId?.toLowerCase().includes(kw),
-      ),
-    }))
-    .filter((g) => g.operations.length > 0)
-})
-
 const schemas = computed(() => spec.value?.components?.schemas)
 const totalOps = computed(() => tagGroups.value.reduce((n, g) => n + g.operations.length, 0))
 const showSchemas = ref(false)
 
-// 监听选中的接口，实现自动展开和滚动
-watch(
-  () => props.selectedOperation,
-  (op) => {
-    if (op) {
-      // 通知 OperationPanel 展开并滚动
-      window.dispatchEvent(new CustomEvent('scroll-to-operation', { detail: op }))
-      emit('operationClicked')
-    }
-  },
-)
+// 当前选中的接口数据
+const selectedOpData = computed(() => {
+  if (!props.selectedOperation || !tagGroups.value.length) return null
+
+  for (const group of tagGroups.value) {
+    const found = group.operations.find(
+      (op) => op.method === props.selectedOperation?.method && op.path === props.selectedOperation?.path
+    )
+    if (found) return found
+  }
+  return null
+})
 </script>
 
 <template>
@@ -110,7 +96,7 @@ watch(
     <div v-else-if="spec" class="flex-1 overflow-y-auto">
       <div class="mx-auto max-w-[1120px] px-6 pb-12">
 
-        <!-- Info header -->
+        <!-- Info header (概览信息，始终显示) -->
         <div class="py-5">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -156,42 +142,53 @@ watch(
           </div>
         </div>
 
-        <!-- Filter bar -->
-        <div class="mb-4 flex items-center gap-2 border-b border-[var(--c-border)] pb-4">
-          <div class="relative flex-1">
-            <svg
-              class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--c-muted)]"
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              v-model="filterKeyword"
-              class="w-full rounded-lg border border-[var(--c-border)] bg-white py-2 pl-9 pr-3 text-[13px] outline-none transition-[border-color,box-shadow] placeholder:text-[#b0b7c3] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.1)]"
-              placeholder="过滤接口路径 / 描述 / operationId…"
-            />
+        <!-- Tag groups overview (概览模式) -->
+        <template v-if="viewMode === 'overview'">
+          <!-- Tag groups summary -->
+          <div class="mb-4 border-b border-[var(--c-border)] pb-4">
+            <h2 class="mb-3 text-[14px] font-semibold text-[var(--c-text)]">接口分组概览</h2>
+            <div class="grid gap-2">
+              <div
+                v-for="group in tagGroups"
+                :key="group.name"
+                class="flex items-center justify-between rounded-lg border border-[var(--c-border)] bg-white px-4 py-3"
+              >
+                <div>
+                  <span class="text-[13px] font-medium text-[var(--c-text)]">{{ group.name }}</span>
+                  <p v-if="group.description" class="mt-0.5 text-[12px] text-[var(--c-muted)]">
+                    {{ group.description }}
+                  </p>
+                </div>
+                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[12px] font-medium text-[var(--c-muted)]">
+                  {{ group.operations.length }} 个接口
+                </span>
+              </div>
+            </div>
           </div>
-          <span v-if="filterKeyword" class="shrink-0 text-[12px] text-[var(--c-muted)]">
-            {{ filteredGroups.reduce((n, g) => n + g.operations.length, 0) }} / {{ totalOps }}
-          </span>
-        </div>
+        </template>
 
-        <!-- Tag sections -->
-        <div v-if="filteredGroups.length">
-          <TagSection
-            v-for="group in filteredGroups"
-            :key="group.name"
-            :group="group"
+        <!-- Single operation detail (接口详情模式) -->
+        <template v-else-if="viewMode === 'operation' && selectedOpData">
+          <div class="mb-4 border-b border-[var(--c-border)] pb-3">
+            <button
+              class="flex cursor-pointer items-center gap-1.5 text-[13px] text-[var(--c-primary)] hover:underline"
+              @click="emit('operationClicked')"
+            >
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              返回概览
+            </button>
+          </div>
+
+          <OperationPanel
+            :item="selectedOpData"
             :schemas="schemas"
           />
-        </div>
-        <div v-else class="py-12 text-center text-[13px] text-[var(--c-muted)]">
-          没有匹配的接口
-        </div>
+        </template>
 
-        <!-- Schemas section -->
-        <div v-if="schemas && Object.keys(schemas).length" class="mt-6">
+        <!-- Schemas section (仅概览模式显示) -->
+        <div v-if="viewMode === 'overview' && schemas && Object.keys(schemas).length" class="mt-6">
           <button
             class="flex w-full cursor-pointer items-center gap-2 rounded-t-[10px] border border-[var(--c-border)] bg-white px-4 py-3 text-left text-[13px] font-semibold text-[var(--c-text)] transition-colors hover:bg-[var(--c-primary-light)]"
             :class="showSchemas ? 'rounded-t-[10px]' : 'rounded-[10px]'"
