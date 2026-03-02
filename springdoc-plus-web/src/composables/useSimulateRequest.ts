@@ -17,6 +17,11 @@ export interface SimulateResult {
   duration: number
 }
 
+export interface CustomHeader {
+  name: string
+  value: string
+}
+
 /**
  * 模拟请求 Composable
  * 支持填写参数值、发送 HTTP 请求、显示响应结果
@@ -28,6 +33,7 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
   const params = ref<RequestParam[]>([])
   const requestBody = ref<string>('')
   const contentType = ref<string>('application/json')
+  const bodyParams = ref<Record<string, string>>({})
 
   // 初始化参数列表
   function initParams() {
@@ -39,6 +45,9 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
       type: p.schema?.type,
       required: p.required ?? false,
     }))
+
+    // 初始化请求体参数
+    bodyParams.value = {}
 
     // 初始化请求体
     const rb = item.operation.requestBody
@@ -97,14 +106,23 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     return base + path
   }
 
-  // 构建请求头
-  function buildHeaders(): Record<string, string> {
+  // 构建请求头（支持自定义请求头）
+  function buildHeaders(customHeaders?: CustomHeader[]): Record<string, string> {
     const headers: Record<string, string> = {}
 
     // 添加 header 参数
     params.value.filter(p => p.in === 'header').forEach(p => {
       if (p.value) headers[p.name] = p.value
     })
+
+    // 添加自定义请求头
+    if (customHeaders) {
+      customHeaders.forEach(h => {
+        if (h.name && h.value) {
+          headers[h.name] = h.value
+        }
+      })
+    }
 
     // 添加 Content-Type
     if (item.operation.requestBody) {
@@ -114,15 +132,49 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     return headers
   }
 
-  // 发送请求
-  async function sendRequest() {
+  // 根据请求体参数构建请求体 JSON
+  function buildBodyFromParams(): string {
+    const schema = item.operation.requestBody?.content?.[contentType.value]?.schema
+    if (!schema || !schema.properties) {
+      return requestBody.value
+    }
+
+    // 构建 JSON 对象
+    const obj: Record<string, any> = {}
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      const p = propSchema as any
+      const val = bodyParams.value[key]
+
+      if (val !== undefined && val !== '') {
+        // 根据类型转换值
+        if (p.type === 'number' || p.type === 'integer') {
+          obj[key] = Number(val)
+        } else if (p.type === 'boolean') {
+          obj[key] = val === 'true'
+        } else if (p.type === 'object' || p.type === 'array') {
+          try {
+            obj[key] = JSON.parse(val)
+          } catch {
+            obj[key] = val
+          }
+        } else {
+          obj[key] = val
+        }
+      }
+    }
+
+    return JSON.stringify(obj)
+  }
+
+  // 发送请求（支持自定义请求头）
+  async function sendRequest(customHeaders?: CustomHeader[]) {
     loading.value = true
     error.value = null
     result.value = null
 
     const startTime = Date.now()
     const url = buildUrl()
-    const headers = buildHeaders()
+    const headers = buildHeaders(customHeaders)
     const method = item.method.toUpperCase()
 
     try {
@@ -133,7 +185,11 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
 
       // 添加请求体（GET/HEAD 不需要）
       if (!['GET', 'HEAD'].includes(method) && item.operation.requestBody) {
-        options.body = requestBody.value
+        // 使用参数构建的请求体，如果没有参数则使用原始请求体
+        const bodyContent = Object.keys(bodyParams.value).length > 0
+          ? buildBodyFromParams()
+          : requestBody.value
+        options.body = bodyContent
       }
 
       const res = await fetch(url, options)
@@ -178,10 +234,16 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     }
   }
 
+  // 更新请求体参数
+  function updateBodyParam(name: string, value: string) {
+    bodyParams.value[name] = value
+  }
+
   // 重置
   function reset() {
     result.value = null
     error.value = null
+    bodyParams.value = {}
     initParams()
   }
 
@@ -195,8 +257,10 @@ export function useSimulateRequest(item: OperationItem, baseUrl?: string) {
     params,
     requestBody,
     contentType,
+    bodyParams,
     sendRequest,
     updateParamValue,
+    updateBodyParam,
     reset,
   }
 }
