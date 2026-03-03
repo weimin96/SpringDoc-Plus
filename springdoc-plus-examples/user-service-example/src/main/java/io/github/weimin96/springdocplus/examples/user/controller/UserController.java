@@ -32,6 +32,13 @@ import java.util.*;
 @RequestMapping("/users")
 public class UserController {
 
+    // ==================== 常量定义 ====================
+
+    private static final String EMAIL_DOMAIN = "@example.com";
+    private static final String AVATAR_UPLOAD_PATH = "/uploads/avatars/";
+    private static final String FILE_UPLOAD_PATH = "/files/";
+    private static final int AUTHORIZATION_PREVIEW_LENGTH = 20;
+
     // ==================== GET 请求示例 ====================
 
     @Operation(summary = "根据ID获取用户", description = "通过路径参数获取单个用户信息")
@@ -44,7 +51,7 @@ public class UserController {
         User user = new User();
         user.setId(id);
         user.setName("用户" + id);
-        user.setEmail("user" + id + "@example.com");
+        user.setEmail("user" + id + EMAIL_DOMAIN);
         user.setAge(25);
         user.setBirthday(LocalDate.of(1999, 1, 1));
         user.setCreatedAt(LocalDateTime.now());
@@ -74,7 +81,7 @@ public class UserController {
             User user = new User();
             user.setId( ((long) page * size + i));
             user.setName("用户" + i);
-            user.setEmail("user" + i + "@example.com");
+            user.setEmail("user" + i + EMAIL_DOMAIN);
             user.setAge(20 + i % 30);
             users.add(user);
         }
@@ -170,11 +177,7 @@ public class UserController {
     @PostMapping("/batch")
     public ResponseEntity<BatchResult> batchCreate(
             @RequestBody List<User> users) {
-        BatchResult result = new BatchResult();
-        result.setSuccessCount(users.size());
-        result.setFailCount(0);
-        result.setFailDetails(Collections.emptyList());
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(createSuccessBatchResult(users.size()));
     }
 
     // ==================== PUT 请求示例 ====================
@@ -204,7 +207,7 @@ public class UserController {
         result.put("fileSize", avatar.getSize());
         result.put("contentType", avatar.getContentType());
         result.put("avatarType", avatarType);
-        result.put("url", "/uploads/avatars/" + id + "_" + avatar.getOriginalFilename());
+        result.put("url", AVATAR_UPLOAD_PATH + id + "_" + avatar.getOriginalFilename());
         return ResponseEntity.ok(result);
     }
 
@@ -237,10 +240,7 @@ public class UserController {
     public ResponseEntity<BatchResult> batchDelete(
             @Parameter(description = "用户ID列表")
             @RequestBody List<Long> ids) {
-        BatchResult result = new BatchResult();
-        result.setSuccessCount(ids.size());
-        result.setFailCount(0);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(createSuccessBatchResult(ids.size()));
     }
 
     // ==================== 文件上传示例 ====================
@@ -255,13 +255,8 @@ public class UserController {
             @Parameter(description = "是否公开")
             @RequestParam(defaultValue = "false") Boolean isPublic) throws IOException {
 
-        FileUploadResult result = new FileUploadResult();
-        result.setFileName(file.getOriginalFilename());
-        result.setFileSize(file.getSize());
-        result.setContentType(file.getContentType());
-        result.setCategory(category);
+        FileUploadResult result = createFileUploadResult(file, category, FILE_UPLOAD_PATH);
         result.setPublic(isPublic);
-        result.setUrl("/files/" + UUID.randomUUID() + "_" + file.getOriginalFilename());
         return ResponseEntity.ok(result);
     }
 
@@ -275,13 +270,7 @@ public class UserController {
 
         List<FileUploadResult> results = new ArrayList<>();
         for (MultipartFile file : files) {
-            FileUploadResult result = new FileUploadResult();
-            result.setFileName(file.getOriginalFilename());
-            result.setFileSize(file.getSize());
-            result.setContentType(file.getContentType());
-            result.setCategory(category);
-            result.setUrl("/files/" + UUID.randomUUID() + "_" + file.getOriginalFilename());
-            results.add(result);
+            results.add(createFileUploadResult(file, category, FILE_UPLOAD_PATH));
         }
         return ResponseEntity.ok(results);
     }
@@ -324,13 +313,7 @@ public class UserController {
             @Parameter(description = "用户代理")
             @RequestHeader(value = "User-Agent", required = false) String userAgent) {
 
-        Map<String, Object> headers = new LinkedHashMap<>();
-        headers.put("authorization", authorization != null ? authorization.substring(0, Math.min(20, authorization.length())) + "..." : null);
-        headers.put("clientType", clientType);
-        headers.put("apiVersion", apiVersion);
-        headers.put("acceptLanguage", acceptLanguage);
-        headers.put("userAgent", userAgent);
-        return ResponseEntity.ok(headers);
+        return ResponseEntity.ok(buildHeadersMap(authorization, clientType, apiVersion, acceptLanguage, userAgent));
     }
 
     // ==================== Cookie 示例 ====================
@@ -490,5 +473,68 @@ public class UserController {
         return ResponseEntity.ok()
                 .eTag(currentEtag)
                 .body(user);
+    }
+
+    // ==================== 辅助方法 ====================
+
+    /**
+     * 创建基础用户对象
+     */
+    private User createUser(Long id, String name, String email) {
+        User user = new User();
+        user.setId(id);
+        user.setName(name);
+        user.setEmail(email);
+        return user;
+    }
+
+    /**
+     * 创建成功的批量操作结果
+     */
+    private BatchResult createSuccessBatchResult(int count) {
+        BatchResult result = new BatchResult();
+        result.setSuccessCount(count);
+        result.setFailCount(0);
+        result.setFailDetails(Collections.emptyList());
+        return result;
+    }
+
+    /**
+     * 构建文件上传结果
+     */
+    private FileUploadResult createFileUploadResult(MultipartFile file, String category, String uploadPath) throws IOException {
+        FileUploadResult result = new FileUploadResult();
+        result.setFileName(file.getOriginalFilename());
+        result.setFileSize(file.getSize());
+        result.setContentType(file.getContentType());
+        result.setCategory(category);
+        result.setUrl(uploadPath + UUID.randomUUID() + "_" + file.getOriginalFilename());
+        return result;
+    }
+
+    /**
+     * 构建响应头 Map
+     */
+    private Map<String, Object> buildHeadersMap(
+            String authorization, String clientType, String apiVersion,
+            String acceptLanguage, String userAgent) {
+        Map<String, Object> headers = new LinkedHashMap<>();
+        headers.put("authorization", maskAuthorization(authorization));
+        headers.put("clientType", clientType);
+        headers.put("apiVersion", apiVersion);
+        headers.put("acceptLanguage", acceptLanguage);
+        headers.put("userAgent", userAgent);
+        return headers;
+    }
+
+    /**
+     * 脱敏显示授权令牌
+     */
+    private String maskAuthorization(String authorization) {
+        if (authorization == null) {
+            return null;
+        }
+        int length = Math.min(AUTHORIZATION_PREVIEW_LENGTH, authorization.length());
+        return authorization.substring(0, length) + "...";
     }
 }

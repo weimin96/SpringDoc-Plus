@@ -1,5 +1,6 @@
 import { ref, type Ref, watch } from 'vue'
-import type { OperationItem } from '@/types/openapi'
+import type { OperationItem, SchemaObject } from '@/types/openapi'
+import { generateJsonSchemaExample, resolveSchemaRef } from '@/utils/schema'
 
 export interface RequestParam {
   name: string
@@ -71,35 +72,10 @@ export function useSimulateRequest(
       const mediaType = Object.keys(rb.content)[0]
       contentType.value = mediaType
       if (mediaType === 'application/json') {
-        const schema = rb.content[mediaType]?.schema
-        requestBody.value = generateJsonExample(schema)
+        const schema = rb.content[mediaType]?.schema ?? null
+        requestBody.value = generateJsonSchemaExample(schema)
       }
     }
-  }
-
-  // 生成 JSON 示例
-  function generateJsonExample(schema: any): string {
-    if (!schema) return '{}'
-
-    if (schema.example !== undefined) {
-      return JSON.stringify(schema.example, null, 2)
-    }
-
-    if (schema.properties) {
-      const obj: Record<string, any> = {}
-      for (const [key, prop] of Object.entries(schema.properties)) {
-        const p = prop as any
-        if (p.type === 'string') obj[key] = p.example || ''
-        else if (p.type === 'number' || p.type === 'integer') obj[key] = p.example || 0
-        else if (p.type === 'boolean') obj[key] = p.example || false
-        else if (p.type === 'array') obj[key] = []
-        else if (p.type === 'object') obj[key] = generateJsonExample(p)
-        else obj[key] = null
-      }
-      return JSON.stringify(obj, null, 2)
-    }
-
-    return '{}'
   }
 
   // 构建完整 URL
@@ -224,10 +200,7 @@ export function useSimulateRequest(
       const res = await fetch(url, options)
       const duration = Date.now() - startTime
 
-      const resHeaders: Record<string, string> = {}
-      res.headers.forEach((value, key) => {
-        resHeaders[key] = value
-      })
+      const resHeaders = Object.fromEntries(res.headers.entries())
 
       let data: unknown
       const resType = res.headers.get('content-type') || ''
@@ -269,8 +242,8 @@ export function useSimulateRequest(
       const mediaType = Object.keys(rb.content)[0]
       contentType.value = mediaType
       if (mediaType === 'application/json') {
-        const schema = rb.content[mediaType]?.schema
-        requestBody.value = generateJsonExample(schema)
+        const schema = rb.content[mediaType]?.schema ?? null
+        requestBody.value = generateJsonSchemaExample(schema)
       }
     }
   }
@@ -282,8 +255,13 @@ export function useSimulateRequest(
     initParams()
   }
 
-  watch(itemRef, () => {
-    reset()
+  // 仅在 operationId 变化时重置，避免不必要的初始化
+  watch(itemRef, (newVal, oldVal) => {
+    const newId = newVal?.operation?.operationId
+    const oldId = oldVal?.operation?.operationId
+    if (newId !== oldId) {
+      reset()
+    }
   }, { deep: false })
 
   initParams()

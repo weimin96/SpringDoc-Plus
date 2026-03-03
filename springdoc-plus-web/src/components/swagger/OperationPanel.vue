@@ -5,6 +5,15 @@ import type { SchemaObject } from '@/types/openapi'
 import MethodBadge from './MethodBadge.vue'
 import SchemaView from './SchemaView.vue'
 import { useSimulateRequest } from '@/composables/useSimulateRequest'
+import {
+  generateJsonSchemaExample,
+  resolveSchemaRef,
+  buildSchemaExample,
+  isJsonContentType,
+  isFormContentType,
+  isBinaryField,
+  CONTENT_TYPE,
+} from '@/utils/schema'
 
 const props = defineProps<{
   item: OperationItem
@@ -37,15 +46,9 @@ const simulateParams = computed(() => simulate.params)
 const simulateRequestBody = computed(() => simulate.requestBody)
 const simulateResult = computed(() => simulate.result)
 
-const isJsonContentType = computed(() => {
-  const ct = simulate.contentType.value
-  return ct.includes('application/json')
-})
-
-const isFormContentType = computed(() => {
-  const ct = simulate.contentType.value
-  return ct.includes('application/x-www-form-urlencoded') || ct.includes('multipart/form-data')
-})
+// 使用工具函数判断 Content-Type
+const isJson = computed(() => isJsonContentType(simulate.contentType.value))
+const isForm = computed(() => isFormContentType(simulate.contentType.value))
 
 const statusColors: Record<string, string> = {
   '2': 'bg-green-100 text-green-800',
@@ -104,17 +107,15 @@ function getSchemaFields(schema: SchemaObject | null): Array<{
   enum?: string[]
 }> {
   if (!schema) return []
-  const resolvedSchema = resolveSchemaRef(schema)
+  const resolvedSchema = resolveSchemaRef(schema, props.schemas)
   if (!resolvedSchema?.properties) return []
   const requiredFields = resolvedSchema.required ?? []
   return Object.entries(resolvedSchema.properties).map(([name, fieldSchema]) => {
-    const resolved = resolveSchemaRef(fieldSchema as SchemaObject)
+    const resolved = resolveSchemaRef(fieldSchema as SchemaObject, props.schemas)
     // 判断是否为数组类型的文件字段（type: array, items.format: binary）
     const isArray = resolved?.type === 'array'
-    const itemSchema = isArray ? resolveSchemaRef((resolved as any).items as SchemaObject) : null
-    const isBinary =
-      resolved?.format === 'binary' ||
-      (isArray && itemSchema?.format === 'binary')
+    const itemSchema = isArray ? resolveSchemaRef((resolved as any).items as SchemaObject, props.schemas) : null
+    const isBinary = isBinaryField(resolved)
     const effectiveType = isArray ? 'array' : (resolved?.type ?? 'string')
     return {
       name,
@@ -130,70 +131,22 @@ function getSchemaFields(schema: SchemaObject | null): Array<{
   })
 }
 
-// 解析 $ref
-function resolveSchemaRef(schema: SchemaObject): SchemaObject | null {
-  if (!schema) return null
-  if ((schema as any).$ref && props.schemas) {
-    const refName = (schema as any).$ref.split('/').pop()
-    return props.schemas[refName] ?? null
-  }
-  return schema
-}
-
-// 生成 JSON example
-function generateJsonExample(schema: SchemaObject | null): string {
-  if (!schema) return '{}'
-  const resolvedSchema = resolveSchemaRef(schema)
-  if (!resolvedSchema) return '{}'
-  return JSON.stringify(buildExample(resolvedSchema), null, 2)
-}
-
-function buildExample(schema: SchemaObject): unknown {
-  if (!schema) return null
-  const resolved = resolveSchemaRef(schema)
-  if (!resolved) return null
-
-  if (resolved.example !== undefined) return resolved.example
-  if (resolved.default !== undefined) return resolved.default
-
-  switch (resolved.type) {
-    case 'object': {
-      const obj: Record<string, unknown> = {}
-      if (resolved.properties) {
-        for (const [key, val] of Object.entries(resolved.properties)) {
-          obj[key] = buildExample(val as SchemaObject)
-        }
-      }
-      return obj
-    }
-    case 'array':
-      return resolved.items ? [buildExample(resolved.items as SchemaObject)] : []
-    case 'string':
-      return resolved.enum?.[0] ?? 'string'
-    case 'integer':
-    case 'number':
-      return 0
-    case 'boolean':
-      return false
-    default:
-      return null
-  }
-}
-
 // form 字段的输入状态（用 name -> value 的 map）
 const formFieldValues = ref<Record<string, string>>({})
 // 文件字段（name -> FileList）
 const formFileValues = ref<Record<string, FileList | null>>({})
+// 防止 JSON 重复初始化
+const jsonBodyInitialized = ref(false)
 
 // 当 schema 字段列表可用时，初始化 form 字段值
 const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
 
 // 当 content-type 为 form 时，将 formFieldValues 序列化后同步到 requestBody，再发送
 function handleSendRequest() {
-  if (isFormContentType.value) {
+  if (isForm.value) {
     const ct = simulate.contentType.value
     const hasFiles = schemaFields.value.some(f => f.isBinary)
-    if (ct.includes('multipart/form-data') || hasFiles) {
+    if (ct.includes(CONTENT_TYPE.MULTIPART_FORM_DATA) || hasFiles) {
       // 使用 FormData（含文件）
       const fd = new FormData()
       for (const field of schemaFields.value) {
@@ -237,17 +190,20 @@ function handleSendRequest() {
 function handleReset() {
   formFieldValues.value = {}
   formFileValues.value = {}
+  jsonBodyInitialized.value = false
   simulate.reset()
   initJsonBody()
 }
 
-// 初始化 JSON 请求体示例
+// 初始化 JSON 请求体示例（带防重复）
 function initJsonBody() {
-  if (isJsonContentType.value && requestBodySchema.value) {
-    const example = generateJsonExample(requestBodySchema.value)
+  if (jsonBodyInitialized.value) return
+  if (isJson.value && requestBodySchema.value) {
+    const example = generateJsonSchemaExample(requestBodySchema.value, props.schemas)
     if (!simulate.requestBody.value || simulate.requestBody.value === '{}' || simulate.requestBody.value === '') {
       simulate.requestBody.value = example
     }
+    jsonBodyInitialized.value = true
   }
 }
 
@@ -256,8 +212,9 @@ watch(simulatePanelCollapsed, (collapsed) => {
   if (!collapsed) initJsonBody()
 })
 
-// schema 变化时也初始化（切换接口时）
+// schema 变化时也初始化（切换接口时），同时重置初始化标志
 watch(requestBodySchema, () => {
+  jsonBodyInitialized.value = false
   if (!simulatePanelCollapsed.value) initJsonBody()
 })
 </script>
@@ -411,7 +368,7 @@ watch(requestBodySchema, () => {
                 </div>
 
                 <!-- application/x-www-form-urlencoded or multipart/form-data: field list -->
-                <div v-if="isFormContentType">
+                <div v-if="isForm">
                   <div class="rounded-lg border border-[var(--c-border)] bg-gray-50 overflow-hidden">
                     <table class="w-full border-collapse text-[12px]">
                       <thead>
@@ -488,7 +445,7 @@ watch(requestBodySchema, () => {
                 </div>
 
                 <!-- application/json: JSON editor with generated example -->
-                <div v-else-if="isJsonContentType">
+                <div v-else-if="isJson">
                   <!-- Schema fields overview -->
                   <div v-if="schemaFields.length" class="mb-2 rounded-lg border border-[var(--c-border)] bg-gray-50 overflow-hidden">
                     <table class="w-full border-collapse text-[12px]">

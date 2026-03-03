@@ -89,6 +89,7 @@ export interface SchemaObject {
   required?: string[]
   enum?: unknown[]
   example?: unknown
+  default?: unknown
   anyOf?: SchemaObject[]
   oneOf?: SchemaObject[]
   allOf?: SchemaObject[]
