@@ -7,6 +7,9 @@ import { resolve } from 'path'
 const BACKEND = 'http://localhost:8080'
 
 export default defineConfig({
+  // 生产环境资源基础路径
+  base: '/springdoc-plus-ui/',
+
   plugins: [vue(), tailwindcss()],
 
   resolve: {
@@ -18,6 +21,7 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      // 开发模式下，使用 /springdoc-plus-ui 前缀访问静态资源
       '/springdoc-plus-gateway': { target: BACKEND, changeOrigin: true },
       '/user-service': { target: BACKEND, changeOrigin: true },
       '/v3': { target: BACKEND, changeOrigin: true },

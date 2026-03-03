@@ -49,4 +49,7 @@ public class SpringdocPlusGatewayAutoConfiguration {
     public org.springframework.web.server.WebFilter springdocPlusBasicAuthWebFilter(SpringdocPlusGatewayProperties props) {
         return new BasicAuthWebFilter(props);
     }
+
+    // 注意：不使用 WebFluxConfigurer 配置静态资源，因为可能与网关路由冲突
+    // 静态资源由 DocHtmlController 直接处理
 }
