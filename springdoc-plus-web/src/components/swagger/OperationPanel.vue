@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, toRef } from 'vue'
+import { ref, computed, toRef, watch } from 'vue'
 import type { OperationItem } from '@/types/openapi'
 import type { SchemaObject } from '@/types/openapi'
 import MethodBadge from './MethodBadge.vue'
@@ -95,6 +95,9 @@ const requestBodySchema = computed(() => {
 function getSchemaFields(schema: SchemaObject | null): Array<{
   name: string
   type: string
+  format?: string
+  isArray: boolean
+  isBinary: boolean
   required: boolean
   description: string
   example: string
@@ -106,9 +109,19 @@ function getSchemaFields(schema: SchemaObject | null): Array<{
   const requiredFields = resolvedSchema.required ?? []
   return Object.entries(resolvedSchema.properties).map(([name, fieldSchema]) => {
     const resolved = resolveSchemaRef(fieldSchema as SchemaObject)
+    // 判断是否为数组类型的文件字段（type: array, items.format: binary）
+    const isArray = resolved?.type === 'array'
+    const itemSchema = isArray ? resolveSchemaRef((resolved as any).items as SchemaObject) : null
+    const isBinary =
+      resolved?.format === 'binary' ||
+      (isArray && itemSchema?.format === 'binary')
+    const effectiveType = isArray ? 'array' : (resolved?.type ?? 'string')
     return {
       name,
-      type: resolved?.type ?? 'string',
+      type: effectiveType,
+      format: resolved?.format ?? (isArray ? itemSchema?.format : undefined),
+      isArray,
+      isBinary,
       required: requiredFields.includes(name),
       description: resolved?.description ?? '',
       example: String(resolved?.example ?? resolved?.default ?? ''),
@@ -169,11 +182,84 @@ function buildExample(schema: SchemaObject): unknown {
 
 // form 字段的输入状态（用 name -> value 的 map）
 const formFieldValues = ref<Record<string, string>>({})
+// 文件字段（name -> FileList）
+const formFileValues = ref<Record<string, FileList | null>>({})
 
 // 当 schema 字段列表可用时，初始化 form 字段值
 const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
 
+// 当 content-type 为 form 时，将 formFieldValues 序列化后同步到 requestBody，再发送
+function handleSendRequest() {
+  if (isFormContentType.value) {
+    const ct = simulate.contentType.value
+    const hasFiles = schemaFields.value.some(f => f.isBinary)
+    if (ct.includes('multipart/form-data') || hasFiles) {
+      // 使用 FormData（含文件）
+      const fd = new FormData()
+      for (const field of schemaFields.value) {
+        if (field.isBinary) {
+          const files = formFileValues.value[field.name]
+          if (files && files.length > 0) {
+            if (field.isArray) {
+              // multiple files -> append each with same key
+              for (let i = 0; i < files.length; i++) {
+                fd.append(field.name, files[i])
+              }
+            } else {
+              fd.append(field.name, files[0])
+            }
+          }
+        } else {
+          const val = formFieldValues.value[field.name]
+          if (val !== '' && val !== undefined) {
+            fd.append(field.name, val)
+          }
+        }
+      }
+      simulate.sendRequest(customHeaders.value, fd)
+    } else {
+      // application/x-www-form-urlencoded
+      const params = new URLSearchParams()
+      for (const [key, val] of Object.entries(formFieldValues.value)) {
+        if (val !== '' && val !== undefined) {
+          params.append(key, val)
+        }
+      }
+      simulate.requestBody.value = params.toString()
+      simulate.sendRequest(customHeaders.value)
+    }
+  } else {
+    simulate.sendRequest(customHeaders.value)
+  }
+}
 
+// 重置时同时清空 form 字段值，并重新初始化 JSON 示例
+function handleReset() {
+  formFieldValues.value = {}
+  formFileValues.value = {}
+  simulate.reset()
+  initJsonBody()
+}
+
+// 初始化 JSON 请求体示例
+function initJsonBody() {
+  if (isJsonContentType.value && requestBodySchema.value) {
+    const example = generateJsonExample(requestBodySchema.value)
+    if (!simulate.requestBody.value || simulate.requestBody.value === '{}' || simulate.requestBody.value === '') {
+      simulate.requestBody.value = example
+    }
+  }
+}
+
+// panel 展开时初始化 JSON
+watch(simulatePanelCollapsed, (collapsed) => {
+  if (!collapsed) initJsonBody()
+})
+
+// schema 变化时也初始化（切换接口时）
+watch(requestBodySchema, () => {
+  if (!simulatePanelCollapsed.value) initJsonBody()
+})
 </script>
 
 <template>
@@ -207,11 +293,11 @@ const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
       <div class="mb-4 rounded-lg border border-[var(--c-border)] bg-white">
 
         <!-- Panel header with collapse toggle -->
-        <div class="flex items-center justify-between border-b border-[var(--c-border)] px-3 py-2.5">
-          <button
-            class="flex items-center gap-2 text-left"
-            @click="simulatePanelCollapsed = !simulatePanelCollapsed"
-          >
+        <div
+          class="flex cursor-pointer items-center justify-between border-b border-[var(--c-border)] px-3 py-2.5 select-none hover:bg-gray-50/60 transition-colors"
+          @click="simulatePanelCollapsed = !simulatePanelCollapsed"
+        >
+          <div class="flex items-center gap-2">
             <svg
               class="h-4 w-4 text-[var(--c-muted)] transition-transform duration-200"
               :class="simulatePanelCollapsed ? '-rotate-90' : ''"
@@ -220,18 +306,18 @@ const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
               <path d="m6 9 6 6 6-6" />
             </svg>
             <span class="text-[12px] font-semibold text-[var(--c-text)]">调试请求</span>
-          </button>
-          <div class="flex items-center gap-2">
+          </div>
+          <div class="flex items-center gap-2" @click.stop>
             <button
               class="rounded-lg border border-[var(--c-border)] bg-white px-3 py-1.5 text-[12px] text-[var(--c-text)] transition-colors hover:bg-gray-50"
-              @click="simulate.reset(); formFieldValues = {}"
+              @click="handleReset()"
             >
               重置
             </button>
             <button
               class="rounded-lg bg-[var(--c-primary)] px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="simulate.loading.value"
-              @click="simulate.sendRequest(customHeaders)"
+              @click="handleSendRequest()"
             >
               {{ simulate.loading.value ? '发送中...' : '发送请求' }}
             </button>
@@ -346,7 +432,12 @@ const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
                           <td class="px-3 py-2 font-mono font-medium text-[var(--c-text)]">
                             {{ field.name }}
                           </td>
-                          <td class="px-3 py-2 font-mono text-[var(--c-muted)] text-[11px]">{{ field.type }}</td>
+                          <td class="px-3 py-2 font-mono text-[var(--c-muted)] text-[11px]">
+                            <span v-if="field.isBinary" class="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-700">
+                              {{ field.isArray ? 'file[]' : 'file' }}
+                            </span>
+                            <span v-else>{{ field.type }}</span>
+                          </td>
                           <td class="px-3 py-2">
                             <span v-if="field.required" class="text-red-500 text-[11px]">必填</span>
                             <span v-else class="text-[var(--c-muted)] text-[11px]">-</span>
@@ -355,9 +446,17 @@ const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
                             {{ field.description || '-' }}
                           </td>
                           <td class="px-3 py-2">
+                            <!-- binary / file upload -->
+                            <input
+                              v-if="field.isBinary"
+                              type="file"
+                              :multiple="field.isArray"
+                              class="w-full text-[12px] text-[var(--c-text)] file:mr-2 file:rounded file:border file:border-[var(--c-border)] file:bg-gray-50 file:px-2 file:py-0.5 file:text-[11px] file:text-[var(--c-text)] hover:file:bg-gray-100"
+                              @change="formFileValues[field.name] = ($event.target as HTMLInputElement).files"
+                            />
                             <!-- enum select -->
                             <select
-                              v-if="field.enum && field.enum.length"
+                              v-else-if="field.enum && field.enum.length"
                               v-model="formFieldValues[field.name]"
                               class="w-full rounded border border-[var(--c-border)] px-2 py-1 text-[12px] outline-none focus:border-[var(--c-primary)] bg-white"
                             >
@@ -431,7 +530,7 @@ const schemaFields = computed(() => getSchemaFields(requestBodySchema.value))
                     rows="8"
                     class="w-full resize-y rounded border border-[var(--c-border)] bg-gray-50 p-2 font-mono text-[11px] outline-none focus:border-[var(--c-primary)]"
                     spellcheck="false"
-                    :placeholder="generateJsonExample(requestBodySchema)"
+                    placeholder="{}"
                   />
                   <p class="mt-1 text-[10px] text-[var(--c-muted)]">
                     💡 上方为示例 JSON，可直接修改后发送

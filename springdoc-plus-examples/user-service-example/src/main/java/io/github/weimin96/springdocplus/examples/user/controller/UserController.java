@@ -113,7 +113,7 @@ public class UserController {
     // ==================== POST 请求示例 ====================
 
     @Operation(summary = "创建用户（JSON）", description = "使用application/json创建新用户")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+    @RequestBody(
             description = "用户信息",
             required = true,
             content = @Content(
@@ -130,7 +130,7 @@ public class UserController {
     }
 
     @Operation(summary = "创建用户（XML）", description = "使用application/xml创建新用户")
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+    @RequestBody(
             description = "用户信息（XML格式）",
             required = true,
             content = @Content(

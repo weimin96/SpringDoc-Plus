@@ -1,4 +1,4 @@
-import { ref, type Ref, watch, toRef } from 'vue'
+import { ref, type Ref, watch } from 'vue'
 import type { OperationItem } from '@/types/openapi'
 
 export interface RequestParam {
@@ -47,7 +47,6 @@ export function useSimulateRequest(
     const item = itemRef.value
     const parameters = item.operation.parameters ?? []
     params.value = parameters.map(p => {
-      // 获取 example 值
       const example = p.example !== undefined
         ? String(p.example)
         : p.schema?.example !== undefined
@@ -57,7 +56,7 @@ export function useSimulateRequest(
       return {
         name: p.name,
         in: p.in as 'path' | 'query' | 'header' | 'cookie',
-        value: example ?? '',  // 有 example 时默认显示
+        value: example ?? '',
         type: p.schema?.type,
         required: p.required ?? false,
         description: p.description,
@@ -65,10 +64,8 @@ export function useSimulateRequest(
       }
     })
 
-    // 初始化请求体参数
     bodyParams.value = {}
 
-    // 初始化请求体
     const rb = item.operation.requestBody
     if (rb?.content) {
       const mediaType = Object.keys(rb.content)[0]
@@ -112,19 +109,15 @@ export function useSimulateRequest(
     const base = window.location.origin
     let path = item.path
 
-    // 如果有 contextPath（网关模式），拼接前缀
     if (contextPath) {
-      // 确保 contextPath 以 / 开头但不以 / 结尾
       const normalizedContextPath = contextPath.startsWith('/') ? contextPath : '/' + contextPath
       path = normalizedContextPath.replace(/\/$/, '') + path
     }
 
-    // 替换路径参数
     params.value.filter(p => p.in === 'path').forEach(p => {
       path = path.replace(`{${p.name}}`, encodeURIComponent(p.value))
     })
 
-    // 添加查询参数
     const queryParams = params.value.filter(p => p.in === 'query' && p.value)
     if (queryParams.length) {
       const qs = queryParams.map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`).join('&')
@@ -134,17 +127,16 @@ export function useSimulateRequest(
     return base + path
   }
 
-  // 构建请求头（支持自定义请求头）
-  function buildHeaders(customHeaders?: CustomHeader[]): Record<string, string> {
+  // 构建请求头
+  // 注意：传入 formData 时不设置 Content-Type，由浏览器自动添加 boundary
+  function buildHeaders(customHeaders?: CustomHeader[], formData?: FormData): Record<string, string> {
     const item = itemRef.value
     const headers: Record<string, string> = {}
 
-    // 添加 header 参数
     params.value.filter(p => p.in === 'header').forEach(p => {
       if (p.value) headers[p.name] = p.value
     })
 
-    // 添加自定义请求头
     if (customHeaders) {
       customHeaders.forEach(h => {
         if (h.name && h.value) {
@@ -153,8 +145,8 @@ export function useSimulateRequest(
       })
     }
 
-    // 添加 Content-Type
-    if (item.operation.requestBody) {
+    // 有 FormData 时不手动设置 Content-Type，让浏览器自动处理（含 boundary）
+    if (!formData && item.operation.requestBody) {
       headers['Content-Type'] = contentType.value
     }
 
@@ -169,14 +161,12 @@ export function useSimulateRequest(
       return requestBody.value
     }
 
-    // 构建 JSON 对象
     const obj: Record<string, any> = {}
     for (const [key, propSchema] of Object.entries(schema.properties)) {
       const p = propSchema as any
       const val = bodyParams.value[key]
 
       if (val !== undefined && val !== '') {
-        // 根据类型转换值
         if (p.type === 'number' || p.type === 'integer') {
           obj[key] = Number(val)
         } else if (p.type === 'boolean') {
@@ -196,8 +186,12 @@ export function useSimulateRequest(
     return JSON.stringify(obj)
   }
 
-  // 发送请求（支持自定义请求头）
-  async function sendRequest(customHeaders?: CustomHeader[]) {
+  /**
+   * 发送请求
+   * @param customHeaders 自定义请求头
+   * @param formData 文件/表单数据（multipart/form-data 场景）
+   */
+  async function sendRequest(customHeaders?: CustomHeader[], formData?: FormData) {
     const item = itemRef.value
     loading.value = true
     error.value = null
@@ -205,7 +199,8 @@ export function useSimulateRequest(
 
     const startTime = Date.now()
     const url = buildUrl()
-    const headers = buildHeaders(customHeaders)
+    // 有 FormData 时不设置 Content-Type header
+    const headers = buildHeaders(customHeaders, formData)
     const method = item.method.toUpperCase()
 
     try {
@@ -214,25 +209,26 @@ export function useSimulateRequest(
         headers,
       }
 
-      // 添加请求体（GET/HEAD 不需要）
       if (!['GET', 'HEAD'].includes(method) && item.operation.requestBody) {
-        // 使用参数构建的请求体，如果没有参数则使用原始请求体
-        const bodyContent = Object.keys(bodyParams.value).length > 0
-          ? buildBodyFromParams()
-          : requestBody.value
-        options.body = bodyContent
+        if (formData) {
+          // 直接使用 FormData 作为请求体
+          options.body = formData
+        } else {
+          const bodyContent = Object.keys(bodyParams.value).length > 0
+            ? buildBodyFromParams()
+            : requestBody.value
+          options.body = bodyContent
+        }
       }
 
       const res = await fetch(url, options)
       const duration = Date.now() - startTime
 
-      // 获取响应头
       const resHeaders: Record<string, string> = {}
       res.headers.forEach((value, key) => {
         resHeaders[key] = value
       })
 
-      // 解析响应体
       let data: unknown
       const resType = res.headers.get('content-type') || ''
       if (resType.includes('application/json')) {
@@ -257,20 +253,15 @@ export function useSimulateRequest(
     }
   }
 
-  // 更新参数值
   function updateParamValue(name: string, value: string) {
     const param = params.value.find(p => p.name === name)
-    if (param) {
-      param.value = value
-    }
+    if (param) param.value = value
   }
 
-  // 更新请求体参数
   function updateBodyParam(name: string, value: string) {
     bodyParams.value[name] = value
   }
 
-  // 重置请求体为默认示例
   function resetRequestBody() {
     const item = itemRef.value
     const rb = item.operation.requestBody
@@ -284,7 +275,6 @@ export function useSimulateRequest(
     }
   }
 
-  // 重置
   function reset() {
     result.value = null
     error.value = null
@@ -292,12 +282,10 @@ export function useSimulateRequest(
     initParams()
   }
 
-  // 监听 item 变化，自动重置
   watch(itemRef, () => {
     reset()
   }, { deep: false })
 
-  // 初始化
   initParams()
 
   return {
