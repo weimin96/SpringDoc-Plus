@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "lint:style": "stylelint \"src/**/*.{css,vue}\"",
     "lint:style:fix": "stylelint \"src/**/*.{css,vue}\" --fix",
-    "format": "prettier --write \"src/**/*.{ts,vue,css,json}\" \"*.{ts,json}\""
+    "format": "prettier --write \"src/**/*.{ts,vue,css,json}\" \"*.{ts,json}\"",
+    "copy": "npm run copy:clean && npm run copy:files",
+    "copy:clean": "node -e \"const fs=require('fs');const p='../springdoc-plus-ui/src/main/resources/META-INF/resources/springdoc-plus-ui';if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true});console.log('Deleted:',p)}\"",
+    "copy:files": "node -e \"const fs=require('fs');const src='./dist';const dest='../springdoc-plus-ui/src/main/resources/META-INF/resources/springdoc-plus-ui';function copyDir(s,d){if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});fs.readdirSync(s).forEach(f=>{const sp=require('path').join(s,f),dp=require('path').join(d,f);fs.statSync(sp).isDirectory()?copyDir(sp,dp):fs.copyFileSync(sp,dp)})};copyDir(src,dest);console.log('Copied to:',dest)\"",
+    "deploy": "npm run build && npm run copy"
   },
   "dependencies": {
     "docxtemplater": "^3.68.3",

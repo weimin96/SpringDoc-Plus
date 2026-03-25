@@ -71,4 +71,4 @@ springdoc-plus:
       enabled: true
       version: openapi3
       excluded-services:
-        - gateway-example
+        - ${spring.application.name}

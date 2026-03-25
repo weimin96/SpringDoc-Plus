@@ -187,11 +187,5 @@ function isTagExpanded(tagName: string): boolean {
         </template>
       </template>
     </nav>
-
-    <!-- Footer -->
-    <footer class="flex flex-shrink-0 items-center gap-1.5 border-t border-[var(--c-border)] px-3.5 py-2.5 text-[11px] text-[var(--c-muted)]">
-      <span>入口保持</span>
-      <code class="rounded border border-[var(--c-border)] bg-[var(--c-bg)] px-1.5 py-px font-mono text-[10.5px] text-[var(--c-text)]">/doc.html</code>
-    </footer>
   </aside>
 </template>
