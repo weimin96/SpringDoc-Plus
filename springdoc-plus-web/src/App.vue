@@ -102,14 +102,32 @@ async function loadSpec(url: string) {
   specError.value = null
   try {
     const headers: Record<string, string> = {}
-    // inject auth header if configured
+    // inject auth headers if configured
     if (configStore.state.authEnabled) {
-      const name = (configStore.state.authHeaderName || 'Authorization').trim()
-      let val = (configStore.state.authValue || '').trim()
-      if (name && val) {
-        const prefix = (configStore.state.authDefaultPrefix || '').trim()
-        if (prefix && !val.startsWith(prefix + ' ')) val = `${prefix} ${val}`
-        headers[name] = val
+      const authHeaders = configStore.state.authHeaders
+      // 优先使用新版本多 header 配置，回退到旧版本单 header
+      if (authHeaders && authHeaders.length > 0) {
+        authHeaders.forEach(h => {
+          if (h.name) {
+            let val = (h.value || '').trim()
+            if (val) {
+              const prefix = (h.defaultPrefix || '').trim()
+              if (prefix && !val.startsWith(prefix + ' ')) {
+                val = `${prefix} ${val}`
+              }
+              headers[h.name.trim()] = val
+            }
+          }
+        })
+      } else if (configStore.state.authHeaderName) {
+        // 旧版本单 header 配置兼容
+        const name = (configStore.state.authHeaderName || 'Authorization').trim()
+        let val = (configStore.state.authValue || '').trim()
+        if (name && val) {
+          const prefix = (configStore.state.authDefaultPrefix || '').trim()
+          if (prefix && !val.startsWith(prefix + ' ')) val = `${prefix} ${val}`
+          headers[name] = val
+        }
       }
     }
     const res = await fetch(url, { headers })

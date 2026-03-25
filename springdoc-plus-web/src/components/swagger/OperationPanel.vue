@@ -2,6 +2,7 @@
 import { ref, computed, toRef, watch } from 'vue'
 import type { OperationItem } from '@/types/openapi'
 import type { SchemaObject } from '@/types/openapi'
+import type { AuthHeader } from '@/types'
 import MethodBadge from './MethodBadge.vue'
 import SchemaView from './SchemaView.vue'
 import { useSimulateRequest } from '@/composables/useSimulateRequest'
@@ -19,6 +20,7 @@ const props = defineProps<{
   item: OperationItem
   schemas?: Record<string, SchemaObject>
   contextPath?: string
+  authHeaders?: AuthHeader[]
 }>()
 
 const opId = computed(() => `op-${props.item.method}-${props.item.path}`)
@@ -41,6 +43,43 @@ function addCustomHeader() {
 function removeCustomHeader(index: number) {
   customHeaders.value.splice(index, 1)
 }
+
+// 合并全局鉴权 header 和本地自定义 header
+// 本地自定义 header 会覆盖同名的全局配置
+const mergedHeaders = computed(() => {
+  const headerMap = new Map<string, string>()
+
+  // 添加全局鉴权 header
+  if (props.authHeaders) {
+    props.authHeaders.forEach(h => {
+      if (h.name) {
+        const name = h.name.trim().toLowerCase()
+        let val = (h.value || '').trim()
+        if (val) {
+          const prefix = (h.defaultPrefix || '').trim()
+          if (prefix && !val.startsWith(prefix + ' ')) {
+            val = `${prefix} ${val}`
+          }
+          headerMap.set(name, val)
+        }
+      }
+    })
+  }
+
+  // 添加本地自定义 header（覆盖同名的全局配置）
+  customHeaders.value.forEach(h => {
+    if (h.name && h.value) {
+      const name = h.name.trim().toLowerCase()
+      headerMap.set(name, h.value)
+    }
+  })
+
+  // 转换为数组
+  return Array.from(headerMap.entries()).map(([name, value]) => ({
+    name: name,
+    value: value
+  }))
+})
 
 const simulateParams = computed(() => simulate.params)
 const simulateRequestBody = computed(() => simulate.requestBody)
@@ -169,7 +208,7 @@ function handleSendRequest() {
           }
         }
       }
-      simulate.sendRequest(customHeaders.value, fd)
+      simulate.sendRequest(mergedHeaders.value, fd)
     } else {
       // application/x-www-form-urlencoded
       const params = new URLSearchParams()
@@ -179,10 +218,10 @@ function handleSendRequest() {
         }
       }
       simulate.requestBody.value = params.toString()
-      simulate.sendRequest(customHeaders.value)
+      simulate.sendRequest(mergedHeaders.value)
     }
   } else {
-    simulate.sendRequest(customHeaders.value)
+    simulate.sendRequest(mergedHeaders.value)
   }
 }
 

@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import type { LocalUiConfig, MergedConfig, ServerUiConfig } from '@/types'
+import type { AuthHeader, LocalUiConfig, MergedConfig, ServerUiConfig } from '@/types'
 
 const LS_KEY = 'springdoc-plus.ui'
 
@@ -8,7 +8,7 @@ export function getLocalConfig(): LocalUiConfig {
   catch { return {} }
 }
 
-export function setLocalConfig(cfg: Omit<LocalUiConfig, 'authValue'> & { authValue?: string }) {
+export function setLocalConfig(cfg: LocalUiConfig) {
   localStorage.setItem(LS_KEY, JSON.stringify(cfg))
 }
 
@@ -24,11 +24,20 @@ export function useConfig(serverCfg: ServerUiConfig) {
   const state = reactive<MergedConfig>(mergeConfig(serverCfg, getLocalConfig()))
 
   function applyLocal(local: LocalUiConfig) {
+    // 持久化时需要处理 authHeaders
     if (local.authPersist) {
       setLocalConfig(local)
     } else {
-      const { authValue: _v, ...rest } = local
-      setLocalConfig(rest)
+      // 不持久化时，不保存 authValue
+      const localToSave = { ...local }
+      if (localToSave.authHeaders) {
+        localToSave.authHeaders = localToSave.authHeaders.map((h: AuthHeader) => ({
+          name: h.name,
+          defaultPrefix: h.defaultPrefix,
+          value: undefined,
+        }))
+      }
+      setLocalConfig(localToSave)
     }
     Object.assign(state, mergeConfig(serverCfg, getLocalConfig()))
   }

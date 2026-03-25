@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
-import type { LocalUiConfig, MergedConfig, ServerUiConfig } from '@/types'
+import type { AuthHeader, LocalUiConfig, MergedConfig, ServerUiConfig } from '@/types'
 
 const props = defineProps<{
   visible: boolean
@@ -14,15 +14,29 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const form = reactive<LocalUiConfig & { authEnabled: boolean }>({
-  tagsSorter: 'alpha',
-  operationsSorter: 'alpha',
+// 表单数据结构
+const form = reactive({
+  tagsSorter: 'alpha' as 'alpha' | 'order',
+  operationsSorter: 'alpha' as 'alpha' | 'order',
   authEnabled: false,
+  // 兼容旧版本单 header 配置（保留但不推荐使用）
   authHeaderName: 'Authorization',
   authDefaultPrefix: '',
   authValue: '',
+  // 新版本多 header 配置
+  authHeaders: [] as AuthHeader[],
   authPersist: false,
 })
+
+// 添加新 header
+function addHeader() {
+  form.authHeaders.push({ name: '', defaultPrefix: '', value: '' })
+}
+
+// 删除 header
+function removeHeader(index: number) {
+  form.authHeaders.splice(index, 1)
+}
 
 watch(
   () => props.visible,
@@ -32,12 +46,38 @@ watch(
     form.tagsSorter = c.tagsSorter ?? 'alpha'
     form.operationsSorter = c.operationsSorter ?? 'alpha'
     form.authEnabled = c.authEnabled ?? false
-    form.authHeaderName = c.authHeaderName ?? 'Authorization'
-    form.authDefaultPrefix = c.authDefaultPrefix ?? ''
-    form.authValue = c.authValue ?? ''
     form.authPersist = c.authPersist ?? false
+
+    // 优先使用新版本多 header 配置，回退到旧版本单 header
+    if (c.authHeaders && c.authHeaders.length > 0) {
+      form.authHeaders = c.authHeaders.map(h => ({ ...h }))
+    } else if (c.authHeaderName) {
+      // 旧版本配置转换为新格式
+      form.authHeaderName = c.authHeaderName ?? 'Authorization'
+      form.authDefaultPrefix = c.authDefaultPrefix ?? ''
+      form.authValue = c.authValue ?? ''
+      form.authHeaders = [{
+        name: form.authHeaderName,
+        defaultPrefix: form.authDefaultPrefix,
+        value: form.authValue,
+      }]
+    } else {
+      form.authHeaders = []
+    }
   },
 )
+
+// 点击应用时触发
+function handleApply() {
+  const cfg: LocalUiConfig = {
+    tagsSorter: form.tagsSorter,
+    operationsSorter: form.operationsSorter,
+    authEnabled: form.authEnabled,
+    authPersist: form.authPersist,
+    authHeaders: form.authHeaders,
+  }
+  emit('apply', cfg)
+}
 </script>
 
 <template>
@@ -131,21 +171,54 @@ watch(
               </label>
             </div>
 
-            <div v-if="form.authEnabled" class="grid grid-cols-[110px_1fr] items-center gap-x-3.5 gap-y-2.5" style="animation:fade-in .15s ease">
-              <label class="text-[13px]">Header 名称</label>
-              <input v-model="form.authHeaderName" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="Authorization" />
+            <div v-if="form.authEnabled" class="space-y-3" style="animation:fade-in .15s ease">
+              <!-- Header 列表 -->
+              <div v-for="(header, index) in form.authHeaders" :key="index" class="rounded-lg border border-[var(--c-border)] bg-gray-50 p-3">
+                <div class="mb-2 flex items-center justify-between">
+                  <span class="text-[11px] font-medium text-[var(--c-muted)]">Header {{ index + 1 }}</span>
+                  <button
+                    v-if="form.authHeaders.length > 1"
+                    type="button"
+                    class="flex h-5 w-5 items-center justify-center rounded text-[var(--c-muted)] hover:bg-[var(--c-border)] hover:text-[var(--c-danger)]"
+                    title="删除"
+                    @click="removeHeader(index)"
+                  >
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div class="grid grid-cols-[80px_1fr] items-center gap-x-3 gap-y-2">
+                  <label class="text-[13px] text-[var(--c-text)]">名称</label>
+                  <input v-model="header.name" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="Authorization" />
 
-              <label class="text-[13px]">默认前缀</label>
-              <input v-model="form.authDefaultPrefix" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="Bearer / Basic / (可空)" />
+                  <label class="text-[13px] text-[var(--c-text)]">前缀</label>
+                  <input v-model="header.defaultPrefix" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="Bearer / Basic / (可空)" />
 
-              <label class="text-[13px]">Token 值</label>
-              <input v-model="form.authValue" type="password" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="eyJhbGci…" autocomplete="off" />
+                  <label class="text-[13px] text-[var(--c-text)]">值</label>
+                  <input v-model="header.value" type="password" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="eyJhbGci…" autocomplete="off" />
+                </div>
+              </div>
 
-              <label class="text-[13px]">持久化</label>
-              <label class="flex cursor-pointer items-center gap-1.5">
-                <input v-model="form.authPersist" type="checkbox" class="h-3.5 w-3.5 accent-[var(--c-primary)]" />
-                <span class="text-xs text-[var(--c-muted)]">保存到 localStorage（刷新后保留）</span>
-              </label>
+              <!-- 添加新 Header -->
+              <button
+                type="button"
+                class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--c-border)] py-2 text-[13px] text-[var(--c-muted)] transition-colors hover:border-[var(--c-primary)] hover:text-[var(--c-primary)]"
+                @click="addHeader"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                添加请求头
+              </button>
+
+              <!-- 持久化 -->
+              <div class="flex items-center gap-2 pt-1">
+                <label class="flex cursor-pointer items-center gap-1.5">
+                  <input v-model="form.authPersist" type="checkbox" class="h-3.5 w-3.5 accent-[var(--c-primary)]" />
+                  <span class="text-xs text-[var(--c-muted)]">保存到 localStorage（刷新后保留）</span>
+                </label>
+              </div>
             </div>
 
             <div v-if="serverConfig.gatewayBasicEnabled" class="mt-2.5 flex items-start gap-2 rounded-lg border border-[#fde68a] bg-[#fef3c7] p-2.5 text-xs text-[#92400e]">
@@ -174,7 +247,7 @@ watch(
           </button>
           <button
             class="cursor-pointer rounded-lg border-none bg-[var(--c-primary)] px-3.5 py-[7px] text-[13px] font-medium text-white transition-colors hover:bg-[var(--c-primary-hover)]"
-            @click="emit('apply', { ...form })"
+            @click="handleApply"
           >
             应用并刷新
           </button>

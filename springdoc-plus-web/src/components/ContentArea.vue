@@ -106,7 +106,7 @@ const selectedOpData = computed(() => {
               </h1>
               <div class="mt-1.5 flex flex-wrap items-center gap-2">
                 <span class="rounded-full bg-blue-100 px-2 py-0.5 font-mono text-[11px] text-blue-700">
-                  v{{ spec.info?.version }}
+                  {{ spec.info?.version }}
                 </span>
                 <span
                   v-if="spec.openapi"
@@ -186,6 +186,7 @@ const selectedOpData = computed(() => {
             :item="selectedOpData"
             :schemas="schemas"
             :context-path="contextPath"
+            :auth-headers="config.authHeaders"
           />
         </template>
 
