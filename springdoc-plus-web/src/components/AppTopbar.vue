@@ -1,16 +1,23 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { ApiGroup, Mode } from '@/types'
+import type { OpenApiSpec } from '@/types/openapi'
+import ExportModal from './ExportModal.vue'
 
-defineProps<{
+const props = defineProps<{
   mode: Mode
   activeGroup: ApiGroup | null
   sidebarCollapsed: boolean
+  spec: OpenApiSpec | null
+  specUrl: string | null
 }>()
 
 const emit = defineEmits<{
   toggleSidebar: []
   openSettings: []
 }>()
+
+const showExportModal = ref(false)
 </script>
 
 <template>
@@ -69,6 +76,23 @@ const emit = defineEmits<{
 
     <!-- Right -->
     <div class="flex flex-shrink-0 items-center gap-2">
+      <!-- Export DOCX -->
+      <button
+        :disabled="!spec"
+        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--c-border)] bg-transparent px-3 py-[5px] text-xs text-[var(--c-muted)] no-underline transition-all hover:bg-[var(--c-bg)] hover:text-[var(--c-text)] disabled:cursor-not-allowed disabled:opacity-50"
+        title="导出 DOCX 文档"
+        @click="showExportModal = true"
+      >
+        <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="12" y1="18" x2="12" y2="12" />
+          <line x1="9" y1="15" x2="12" y2="12" />
+          <line x1="15" y1="15" x2="12" y2="12" />
+        </svg>
+        导出 DOCX
+      </button>
+
       <!-- Open JSON -->
       <a
         v-if="activeGroup"
@@ -96,5 +120,12 @@ const emit = defineEmits<{
         配置
       </button>
     </div>
+
+    <!-- Export Modal -->
+    <ExportModal
+      :visible="showExportModal"
+      :spec="spec"
+      @close="showExportModal = false"
+    />
   </header>
 </template>

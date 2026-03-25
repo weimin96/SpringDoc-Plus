@@ -24,6 +24,7 @@ export default defineConfig({
       // 开发模式下，使用 /springdoc-plus-ui 前缀访问静态资源
       '/springdoc-plus-gateway': { target: BACKEND, changeOrigin: true },
       '/user-service': { target: BACKEND, changeOrigin: true },
+      '/order-service': { target: BACKEND, changeOrigin: true },
       '/v3': { target: BACKEND, changeOrigin: true },
       '/actuator': { target: BACKEND, changeOrigin: true },
     },

@@ -211,6 +211,8 @@ onMounted(async () => {
     :mode="mode"
     :active-group="activeGroup"
     :sidebar-collapsed="sidebarCollapsed"
+    :spec="spec"
+    :spec-url="activeGroup?.url ?? null"
     @toggle-sidebar="sidebarCollapsed = !sidebarCollapsed"
     @open-settings="showSettings = true"
   />
