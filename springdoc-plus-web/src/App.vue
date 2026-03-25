@@ -6,13 +6,12 @@ import ContentArea from '@/components/ContentArea.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 
 import { useConfig } from '@/composables/useConfig'
-import { detectMode, fetchGroups, fetchServerUiConfig, resolveServiceGroup } from '@/composables/useApi'
+import { fetchGroups, fetchServerUiConfig } from '@/composables/useApi'
 
-import type { ApiGroup, LocalUiConfig, Mode, ServerUiConfig } from '@/types'
+import type { ApiGroup, LocalUiConfig, ServerUiConfig } from '@/types'
 import type { OpenApiSpec, HttpMethod } from '@/types/openapi'
 
 // ── State ──────────────────────────────────────────
-const mode             = ref<Mode>('gateway')
 const groups           = ref<ApiGroup[]>([])
 const activeGroup      = ref<ApiGroup | null>(null)
 const sidebarLoading   = ref(true)
@@ -180,11 +179,9 @@ watch(activeGroup, (group) => {
 // ── Init ───────────────────────────────────────────
 onMounted(async () => {
   try {
-    mode.value = await detectMode()
-
     const [g, srv] = await Promise.all([
-      mode.value === 'gateway' ? fetchGroups() : resolveServiceGroup(),
-      mode.value === 'gateway' ? fetchServerUiConfig() : Promise.resolve({} as ServerUiConfig),
+      fetchGroups(),
+      fetchServerUiConfig(),
     ])
 
     groups.value = g
@@ -208,7 +205,6 @@ onMounted(async () => {
 
 <template>
   <AppTopbar
-    :mode="mode"
     :active-group="activeGroup"
     :sidebar-collapsed="sidebarCollapsed"
     :spec="spec"

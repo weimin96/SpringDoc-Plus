@@ -1,0 +1,27 @@
+# Release Drafter 配置
+# 当推送 tag 时自动生成 Release
+
+name: Release Drafter
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  update_release_draft:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v5
+        with:
+          tag: ${{ github.ref_name }}
+          name-template: '${{ github.ref_name }}'
+          include-template: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

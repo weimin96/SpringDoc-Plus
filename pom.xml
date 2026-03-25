@@ -11,6 +11,27 @@
   <name>springdoc-plus</name>
   <description>Knife4j-like project for Spring Boot 4 + springdoc 3, with Gateway aggregation and refactored UI</description>
 
+  <scm>
+    <url>
+      https://github.com/weimin96/SpringDoc-Plus
+    </url>
+    <connection>
+      scm:git:https://github.com/weimin96/SpringDoc-Plus.git
+    </connection>
+    <developerConnection>
+      scm:git:git@github.com:weimin96/SpringDoc-Plus.git
+    </developerConnection>
+  </scm>
+
+  <developers>
+    <developer>
+      <name>weimin96</name>
+      <email>735313582@qq.com</email>
+      <organization>github.com:weimin96</organization>
+      <timezone>+8</timezone>
+    </developer>
+  </developers>
+
   <modules>
     <module>springdoc-plus-core</module>
     <module>springdoc-plus-ui</module>
@@ -29,6 +50,16 @@
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- Maven Central 发布配置 -->
+    <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
+    <maven.javadoc.plugin.version>3.6.3</maven.javadoc.plugin.version>
+    <maven.gpg.plugin.version>1.6</maven.gpg.plugin.version>
+    <maven.deploy.plugin.version>3.1.2</maven.deploy.plugin.version>
+    <maven.nexus.staging.plugin.version>1.7.0</maven.nexus.staging.plugin.version>
+
+    <!-- 本地构建跳过 javadoc -->
+    <skipJavadoc>true</skipJavadoc>
   </properties>
 
   <dependencyManagement>
@@ -57,6 +88,20 @@
     </dependencies>
   </dependencyManagement>
 
+  <!-- Maven Central 发布配置 -->
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <name>Sonatype OSSRH</name>
+      <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <name>Sonatype OSSRH Snapshots</name>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <build>
     <pluginManagement>
       <plugins>
@@ -75,6 +120,86 @@
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
           <version>${spring-boot.version}</version>
+        </plugin>
+        <!-- 源码插件：生成源码 jar -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>${maven.source.plugin.version}</version>
+          <executions>
+            <execution>
+              <id>attach-sources</id>
+              <phase>package</phase>
+              <goals>
+                <goal>jar-no-fork</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <!-- Javadoc 插件：生成 javadoc jar -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>${maven.javadoc.plugin.version}</version>
+          <executions>
+            <execution>
+              <id>attach-javadocs</id>
+              <phase>package</phase>
+              <goals>
+                <goal>jar</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <doclint>none</doclint>
+            <!-- 发布时才生成 javadoc -->
+            <skip>${skipJavadoc}</skip>
+            <quiet>true</quiet>
+            <notimestamp>true</notimestamp>
+            <charset>UTF-8</charset>
+            <encoding>UTF-8</encoding>
+            <docencoding>UTF-8</docencoding>
+            <linksource>true</linksource>
+          </configuration>
+        </plugin>
+        <!-- GPG 签名插件：Maven Central 必须 -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-gpg-plugin</artifactId>
+          <version>${maven.gpg.plugin.version}</version>
+          <configuration>
+            <gpgArguments>
+              <arg>--pinentry-mode</arg>
+              <arg>loopback</arg>
+            </gpgArguments>
+          </configuration>
+          <executions>
+            <execution>
+              <id>sign-artifacts</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>sign</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <!-- Deploy 插件：发布到远程仓库 -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${maven.deploy.plugin.version}</version>
+        </plugin>
+        <!-- Nexus Staging 插件：发布到 Maven Central -->
+        <plugin>
+          <groupId>org.sonatype.plugins</groupId>
+          <artifactId>nexus-staging-maven-plugin</artifactId>
+          <version>${maven.nexus.staging.plugin.version}</version>
+          <extensions>true</extensions>
+          <configuration>
+            <serverId>ossrh</serverId>
+            <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>

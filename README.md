@@ -9,14 +9,21 @@
 
 > 由于 Knife4j 许久不发版，参考 Knife4j 方案，重新实现适配 Spring Boot 4.0 + springdoc 3.0 的 OpenAPI 文档聚合与 UI。
 
+<table>
+  <tr>
+    <td><img src="./screenshot/gateway.png" width="500"/></td>
+    <td><img src="./screenshot/export.png" width="500"/></td>
+  </tr>
+</table>
+
 ## 特性
 
 - 网关聚合模式：支持手动配置（manual）和服务发现（discover）两种模式
 - 双模式自动检测：网关模式 / 子服务模式自动识别
-- 自实现 OpenAPI 3.x 解析与渲染，无第三方运行时依赖
 - 支持 Basic 认证保护
-- 支持分组排序策略
-- 自定义 docx 模板导出
+- 自定义 DOCX 模板导出
+- 自定义请求头
+- 模拟请求
 
 ## 技术栈
 
@@ -42,28 +49,33 @@
 
 `pom` 文件引入依赖
 
-```pom
+```xml
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-openapi3-spring-boot-starter</artifactId>
-    <version>0.1.0<version>
+    <version>0.1.0</version>
 </dependency>
+```
+
+启动类加上注解
+```
+@OpenAPIDefinition(info = @Info(title = "系统服务", version = "v1"))
 ```
 
 ### 网关
 
 `pom` 文件引入依赖
 
-```pom
+```xml
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
-    <version>0.1.0<version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
 `application.yml` 配置示例
-```angular2html
+```yml
 spring:
   application:
     name: gateway-service

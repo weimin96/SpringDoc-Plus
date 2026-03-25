@@ -1,0 +1,59 @@
+# PR 和 Push 构建测试工作流
+# 当有 PR 或 push 到 main/master 时自动构建测试
+
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 构建项目（跳过测试）
+        run: mvn -q -DskipTests package
+
+      - name: 运行测试
+        run: mvn -q test
+
+  # 前端构建
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 安装依赖
+        working-directory: ./springdoc-plus-web
+        run: pnpm install
+
+      - name: 构建前端
+        working-directory: ./springdoc-plus-web
+        run: pnpm build

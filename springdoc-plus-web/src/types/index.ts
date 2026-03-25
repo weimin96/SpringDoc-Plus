@@ -2,9 +2,6 @@
    Types
 ═══════════════════════════════════════════ */
 
-/** 进入模式 */
-export type Mode = 'gateway' | 'service'
-
 /** 文档组（网关模式） */
 export interface ApiGroup {
   name: string

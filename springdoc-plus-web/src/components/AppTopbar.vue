@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { ApiGroup, Mode } from '@/types'
+import type { ApiGroup } from '@/types'
 import type { OpenApiSpec } from '@/types/openapi'
 import ExportModal from './ExportModal.vue'
 
 const props = defineProps<{
-  mode: Mode
   activeGroup: ApiGroup | null
   sidebarCollapsed: boolean
   spec: OpenApiSpec | null
@@ -56,16 +55,6 @@ const showExportModal = ref(false)
 
       <!-- Divider -->
       <div class="h-5 w-px flex-shrink-0 bg-[var(--c-border)]" />
-
-      <!-- Mode badge -->
-      <span
-        class="flex-shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-        :class="mode === 'gateway'
-          ? 'bg-blue-100 text-blue-800'
-          : 'bg-green-100 text-green-800'"
-      >
-        {{ mode === 'gateway' ? '网关' : '子服务' }}
-      </span>
 
       <!-- Current group -->
       <div v-if="activeGroup" class="flex min-w-0 items-center gap-1.5">
