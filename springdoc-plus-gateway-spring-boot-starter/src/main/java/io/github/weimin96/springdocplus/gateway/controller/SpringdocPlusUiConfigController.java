@@ -7,6 +7,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * UI 配置控制器。
+ * <p>
+ * 提供 UI 所需的配置信息接口，包括排序策略、认证设置等。
+ *
  * @author pwm
  */
 @RestController
@@ -14,10 +18,20 @@ public class SpringdocPlusUiConfigController {
 
   private final SpringdocPlusGatewayProperties props;
 
+  /**
+   * 构造器
+   *
+   * @param props 网关配置属性
+   */
   public SpringdocPlusUiConfigController(SpringdocPlusGatewayProperties props) {
     this.props = props;
   }
 
+  /**
+   * 获取 UI 配置
+   *
+   * @return UI 配置信息
+   */
   @GetMapping(value = "/springdoc-plus-gateway/ui-config", produces = MediaType.APPLICATION_JSON_VALUE)
   public SpringdocPlusUiConfig config() {
     SpringdocPlusUiConfig cfg = new SpringdocPlusUiConfig();

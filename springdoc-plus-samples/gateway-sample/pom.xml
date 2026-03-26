@@ -6,7 +6,7 @@
   <parent>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-samples</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>0.1.2</version>
   </parent>
 
   <artifactId>gateway-sample</artifactId>
@@ -46,6 +46,12 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
       </plugin>
     </plugins>
   </build>

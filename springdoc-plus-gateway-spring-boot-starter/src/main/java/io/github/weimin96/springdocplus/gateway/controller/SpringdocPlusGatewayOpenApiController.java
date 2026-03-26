@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
+ * 网关 OpenAPI 控制器。
+ * <p>
+ * 提供网关聚合文档的分组列表接口，供前端 UI 获取可用的服务分组。
+ *
  * @author pwm
  */
 @RestController
@@ -23,6 +27,13 @@ public class SpringdocPlusGatewayOpenApiController {
 
     private final DiscoveryClient discoveryClient;
 
+    /**
+     * 构造器
+     *
+     * @param props                  网关配置属性
+     * @param discoverGroupsService 分组服务
+     * @param discoveryClientProvider 服务发现客户端提供者
+     */
     public SpringdocPlusGatewayOpenApiController(
             SpringdocPlusGatewayProperties props,
             DiscoverGroupsService discoverGroupsService,
@@ -35,6 +46,8 @@ public class SpringdocPlusGatewayOpenApiController {
 
     /**
      * UI 获取分组列表。
+     *
+     * @return 分组响应，包含网关聚合的路由列表
      */
     @GetMapping(value = "/springdoc-plus-gateway/openapi/groups", produces = MediaType.APPLICATION_JSON_VALUE)
     public GroupsResponse groups() {
@@ -46,6 +59,11 @@ public class SpringdocPlusGatewayOpenApiController {
         return new GroupsResponse(groups);
     }
 
+    /**
+     * 分组响应记录
+     *
+     * @param groups 网关路由列表
+     */
     public record GroupsResponse(List<GatewayRoute> groups) {
     }
 }

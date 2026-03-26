@@ -24,6 +24,11 @@ public class BasicAuthWebFilter implements WebFilter {
 
     private final SpringdocPlusGatewayProperties props;
 
+    /**
+     * 构造器
+     *
+     * @param props 网关配置属性
+     */
     public BasicAuthWebFilter(SpringdocPlusGatewayProperties props) {
         this.props = props;
     }

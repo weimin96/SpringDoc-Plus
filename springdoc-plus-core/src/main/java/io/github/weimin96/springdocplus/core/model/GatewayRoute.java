@@ -54,58 +54,128 @@ public class GatewayRoute {
     public GatewayRoute() {
     }
 
+    /**
+     * 获取 UI 显示名称
+     *
+     * @return UI 显示名称
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * 设置 UI 显示名称
+     *
+     * @param name UI 显示名称
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * 获取服务名
+     *
+     * @return 服务名
+     */
     public String getServiceName() {
         return serviceName;
     }
 
+    /**
+     * 设置服务名
+     *
+     * @param serviceName 服务名
+     */
     public void setServiceName(String serviceName) {
         this.serviceName = serviceName;
     }
 
+    /**
+     * 获取 OpenAPI 文档地址
+     *
+     * @return OpenAPI 文档地址
+     */
     public String getUrl() {
         return url;
     }
 
+    /**
+     * 设置 OpenAPI 文档地址
+     *
+     * @param url OpenAPI 文档地址
+     */
     public void setUrl(String url) {
         this.url = url;
     }
 
+    /**
+     * 获取上下文路径
+     *
+     * @return 上下文路径
+     */
     public String getContextPath() {
         return contextPath;
     }
 
+    /**
+     * 设置上下文路径
+     *
+     * @param contextPath 上下文路径
+     */
     public void setContextPath(String contextPath) {
         this.contextPath = contextPath;
     }
 
+    /**
+     * 获取 springdoc group
+     *
+     * @return springdoc group
+     */
     public String getGroup() {
         return group;
     }
 
+    /**
+     * 设置 springdoc group
+     *
+     * @param group springdoc group
+     */
     public void setGroup(String group) {
         this.group = group;
     }
 
+    /**
+     * 获取多分组列表
+     *
+     * @return 多分组列表
+     */
     public List<String> getGroupNames() {
         return groupNames;
     }
 
+    /**
+     * 设置多分组列表
+     *
+     * @param groupNames 多分组列表
+     */
     public void setGroupNames(List<String> groupNames) {
         this.groupNames = groupNames;
     }
 
+    /**
+     * 获取排序值
+     *
+     * @return 排序值
+     */
     public Integer getOrder() {
         return order;
     }
 
+    /**
+     * 设置排序值
+     *
+     * @param order 排序值
+     */
     public void setOrder(Integer order) {
         this.order = order;
     }

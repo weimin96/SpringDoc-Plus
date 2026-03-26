@@ -13,6 +13,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.*;
 
 /**
+ * 网关配置属性类。
+ * <p>
+ * 用于配置网关聚合文档的各项参数，包括聚合策略、路由配置、认证信息等。
+ *
  * @author pwm
  */
 @Data
@@ -20,12 +24,12 @@ import java.util.*;
 public class SpringdocPlusGatewayProperties {
 
     /**
-     * 前缀
+     * 配置前缀
      */
     public static final String PREFIX = "springdoc-plus.gateway";
 
     /**
-     * 是否开启
+     * 是否开启网关聚合文档
      */
     private boolean enabled = false;
 
@@ -61,10 +65,19 @@ public class SpringdocPlusGatewayProperties {
 
     private final Discover discover = new Discover();
 
+    /**
+     * 服务发现配置
+     */
     @Data
     public static class Discover {
+        /**
+         * 是否启用服务发现
+         */
         private boolean enabled = false;
 
+        /**
+         * OpenAPI 版本
+         */
         private OpenApiVersion version = OpenApiVersion.OPENAPI3;
 
         /**
@@ -87,11 +100,27 @@ public class SpringdocPlusGatewayProperties {
          * 默认 true。
          */
         private boolean resolveContextPathFromGatewayRoutes = true;
+
+        /**
+         * 无参构造器
+         */
+        public Discover() {
+        }
     }
 
+    /**
+     * 服务配置
+     */
     @Data
     public static class ServiceConfig {
+        /**
+         * 排序值
+         */
         private Integer order = 0;
+
+        /**
+         * 分组名称
+         */
         private String groupName;
 
         /**
@@ -104,5 +133,17 @@ public class SpringdocPlusGatewayProperties {
          * 若配置，将为每个 group 生成一个聚合入口。
          */
         private List<String> groupNames;
+
+        /**
+         * 无参构造器
+         */
+        public ServiceConfig() {
+        }
+    }
+
+    /**
+     * 无参构造器
+     */
+    public SpringdocPlusGatewayProperties() {
     }
 }

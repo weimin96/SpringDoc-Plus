@@ -5,7 +5,7 @@
 
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>0.1.2</version>
     <packaging>pom</packaging>
 
     <name>springdoc-plus</name>
@@ -171,29 +171,9 @@
         </plugins>
     </build>
 
-    <!-- Maven Central 发布配置 -->
-    <distributionManagement>
-        <repository>
-            <id>ossrh</id>
-            <name>Sonatype OSSRH</name>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <name>Sonatype OSSRH Snapshots</name>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <profiles>
         <profile>
             <id>release</id>
-            <modules>
-                <module>springdoc-plus-core</module>
-                <module>springdoc-plus-ui</module>
-                <module>springdoc-plus-gateway-spring-boot-starter</module>
-                <module>springdoc-plus-openapi3-spring-boot-starter</module>
-            </modules>
             <build>
                 <plugins>
                     <!-- sonatype插件，发布使用-->
@@ -241,6 +221,7 @@
                             <encoding>UTF-8</encoding>
                             <docencoding>UTF-8</docencoding>
                             <linksource>true</linksource>
+                            <doclint>all,-missing</doclint>
                         </configuration>
                         <executions>
                             <execution>

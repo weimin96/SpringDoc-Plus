@@ -18,10 +18,20 @@ public class GatewayRouteDefinitionResolver {
 
     private final RouteDefinitionLocator locator;
 
+    /**
+     * 构造器
+     *
+     * @param locator 网关路由定义定位器
+     */
     public GatewayRouteDefinitionResolver(RouteDefinitionLocator locator) {
         this.locator = locator;
     }
 
+    /**
+     * 解析网关路由定义为可用的路由信息
+     *
+     * @return 解析后的路由信息流
+     */
     public Flux<ResolvedRoute> resolve() {
         return locator.getRouteDefinitions()
                 .filter(obj -> true)
@@ -108,6 +118,14 @@ public class GatewayRouteDefinitionResolver {
         return "/" + seg[1];
     }
 
+    /**
+     * 解析后的路由信息记录
+     *
+     * @param serviceId       服务 ID
+     * @param contextPath    上下文路径
+     * @param rawPathPattern 原始路径模式
+     * @param stripPrefix    剥离前缀数量
+     */
     public record ResolvedRoute(String serviceId, String contextPath, String rawPathPattern, Integer stripPrefix) {
     }
 }

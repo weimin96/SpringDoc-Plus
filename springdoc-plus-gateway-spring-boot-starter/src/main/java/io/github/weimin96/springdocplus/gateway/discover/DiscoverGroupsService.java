@@ -25,11 +25,26 @@ public class DiscoverGroupsService {
     private final SpringdocPlusGatewayProperties props;
     private final RouteDefinitionLocator routeDefinitionLocator;
 
+    /**
+     * 构造器
+     *
+     * @param props                  网关配置属性
+     * @param routeDefinitionLocator 网关路由定义定位器
+     */
     public DiscoverGroupsService(SpringdocPlusGatewayProperties props, RouteDefinitionLocator routeDefinitionLocator) {
         this.props = props;
         this.routeDefinitionLocator = routeDefinitionLocator;
     }
 
+    /**
+     * 获取可用的网关路由分组列表。
+     * <p>
+     * - manual: 直接使用 springdoc-plus.gateway.routes
+     * - discover: 以 DiscoveryClient 的 serviceId 列表为准（感知上下线），可选结合 Gateway RouteDefinition 推断 contextPath
+     *
+     * @param discoverServiceIds 服务发现获取的服务 ID 列表（可选）
+     * @return 网关路由分组列表
+     */
     public List<GatewayRoute> getGroups(Optional<List<String>> discoverServiceIds) {
         if (props.getStrategy() == GatewayStrategy.MANUAL) {
             return sort(copy(props.getRoutes()));

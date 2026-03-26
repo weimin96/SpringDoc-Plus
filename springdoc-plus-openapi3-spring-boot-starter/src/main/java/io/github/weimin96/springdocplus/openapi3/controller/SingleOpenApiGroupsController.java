@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * 单服务 OpenAPI 分组控制器。
+ * <p>
  * 复用网关 UI 的同一套前端：它只依赖 /springdoc-plus-gateway/openapi/groups。
  * 在单体场景下也提供同名接口，返回单个分组即可。
  *
@@ -17,6 +19,17 @@ import java.util.Map;
 @RestController
 public class SingleOpenApiGroupsController {
 
+    /**
+     * 无参构造器
+     */
+    public SingleOpenApiGroupsController() {
+    }
+
+    /**
+     * 获取分组列表
+     *
+     * @return 单服务分组信息
+     */
     @Hidden
     @GetMapping(value = "/springdoc-plus-gateway/openapi/groups", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> groups() {

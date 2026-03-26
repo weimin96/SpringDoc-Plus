@@ -10,12 +10,22 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
+ * 订单控制器。
+ * <p>
+ * 提供订单相关的 REST 接口。
+ *
  * @author pwm
  */
 @Tag(name = "订单")
 @RestController
 @RequestMapping("/orders")
 public class OrderController {
+
+    /**
+     * 无参构造器
+     */
+    public OrderController() {
+    }
 
     /**
      * 根据 ID 获取订单

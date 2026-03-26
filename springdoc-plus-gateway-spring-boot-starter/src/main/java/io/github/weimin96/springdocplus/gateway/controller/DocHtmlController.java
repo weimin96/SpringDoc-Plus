@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 /**
  * 保持 Knife4j 习惯：对外入口永远是 /doc.html
  * 同时提供 /springdoc-plus-ui/ 静态资源（JS/CSS/图片）
+ *
  * @author pwm
  */
 @RestController
@@ -20,10 +21,20 @@ public class DocHtmlController {
 
     private final ResourceLoader resourceLoader;
 
+    /**
+     * 构造器
+     *
+     * @param resourceLoader 资源加载器
+     */
     public DocHtmlController(ResourceLoader resourceLoader) {
         this.resourceLoader = resourceLoader;
     }
 
+    /**
+     * 获取文档 HTML 页面
+     *
+     * @return HTML 页面响应
+     */
     @GetMapping(value = "/doc.html", produces = MediaType.TEXT_HTML_VALUE)
     public Mono<ResponseEntity<Resource>> docHtml() {
         // WebFlux 环境不支持 forward: 视图，直接加载资源
@@ -35,6 +46,9 @@ public class DocHtmlController {
 
     /**
      * 提供 /springdoc-plus-ui/assets/** 资源（JS/CSS）
+     *
+     * @param filename 资源文件名
+     * @return 资源响应
      */
     @GetMapping("/springdoc-plus-ui/assets/{filename}")
     public Mono<ResponseEntity<Resource>> uiAsset(@PathVariable String filename) {
@@ -50,6 +64,9 @@ public class DocHtmlController {
 
     /**
      * 提供 /springdoc-plus-ui/** 根目录资源（如 favicon.svg）
+     *
+     * @param filename 资源文件名
+     * @return 资源响应
      */
     @GetMapping("/springdoc-plus-ui/{filename}")
     public Mono<ResponseEntity<Resource>> uiRootAsset(@PathVariable String filename) {

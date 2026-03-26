@@ -33,6 +33,12 @@ import java.util.*;
 @RequestMapping("/users")
 public class UserController {
 
+    /**
+     * 无参构造器
+     */
+    public UserController() {
+    }
+
     // ==================== 常量定义 ====================
 
     private static final String EMAIL_DOMAIN = "@example.com";
@@ -42,6 +48,12 @@ public class UserController {
 
     // ==================== GET 请求示例 ====================
 
+    /**
+     * 根据ID获取用户
+     *
+     * @param id 用户ID
+     * @return 用户信息
+     */
     @Operation(summary = "根据ID获取用户", description = "通过路径参数获取单个用户信息")
     @ApiResponse(responseCode = "200", description = "成功获取用户")
     @ApiResponse(responseCode = "404", description = "用户不存在")
@@ -59,6 +71,18 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    /**
+     * 分页查询用户列表
+     *
+     * @param page     页码，从1开始
+     * @param size     每页数量
+     * @param name     用户名，支持模糊查询
+     * @param minAge   最小年龄
+     * @param maxAge   最大年龄
+     * @param sortBy   排序字段
+     * @param sortOrder 排序方向
+     * @return 分页结果
+     */
     @Operation(summary = "分页查询用户列表", description = "支持多条件筛选和分页")
     @GetMapping
     public ResponseEntity<PageResult<User>> list(
@@ -95,6 +119,16 @@ public class UserController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * 搜索用户
+     *
+     * @param keyword  关键词，匹配用户名或邮箱
+     * @param status   状态：ACTIVE-激活, INACTIVE-未激活, BANNED-封禁
+     * @param deptIds  部门ID列表，多个用逗号分隔
+     * @param startDate 注册开始日期
+     * @param endDate  注册结束日期
+     * @return 用户列表
+     */
     @Operation(summary = "搜索用户", description = "通过多个查询参数搜索用户")
     @GetMapping("/search")
     public ResponseEntity<List<User>> search(
@@ -120,6 +154,12 @@ public class UserController {
 
     // ==================== POST 请求示例 ====================
 
+    /**
+     * 创建用户（JSON）
+     *
+     * @param user 用户信息
+     * @return 创建的用户
+     */
     @Operation(summary = "创建用户（JSON）", description = "使用application/json创建新用户")
     @RequestBody(
             description = "用户信息",
@@ -137,6 +177,12 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
+    /**
+     * 创建用户（XML）
+     *
+     * @param user 用户信息
+     * @return 创建的用户
+     */
     @Operation(summary = "创建用户（XML）", description = "使用application/xml创建新用户")
     @RequestBody(
             description = "用户信息（XML格式）",
@@ -153,6 +199,15 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    /**
+     * 创建用户（表单）
+     *
+     * @param name  用户名
+     * @param email 邮箱
+     * @param age   年龄
+     * @param bio   简介
+     * @return 创建的用户
+     */
     @Operation(summary = "创建用户（表单）", description = "使用application/x-www-form-urlencoded提交用户信息")
     @PostMapping(path = "/form", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public ResponseEntity<User> createForm(
@@ -174,6 +229,12 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    /**
+     * 批量创建用户
+     *
+     * @param users 用户列表
+     * @return 批量操作结果
+     */
     @Operation(summary = "批量创建用户", description = "一次创建多个用户")
     @PostMapping("/batch")
     public ResponseEntity<BatchResult> batchCreate(
@@ -183,6 +244,13 @@ public class UserController {
 
     // ==================== PUT 请求示例 ====================
 
+    /**
+     * 更新用户（全量）
+     *
+     * @param id   用户ID
+     * @param user 用户信息
+     * @return 更新后的用户
+     */
     @Operation(summary = "更新用户（全量）", description = "全量更新用户信息，未传递的字段会被置空")
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> update(
@@ -193,6 +261,15 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    /**
+     * 更新用户头像
+     *
+     * @param id         用户ID
+     * @param avatar     头像文件
+     * @param avatarType 头像类型：square-方形, circle-圆形
+     * @return 上传结果
+     * @throws IOException 文件处理异常
+     */
     @Operation(summary = "更新用户头像", description = "使用multipart/form-data上传头像并更新")
     @PutMapping(path = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> updateAvatar(
@@ -214,6 +291,13 @@ public class UserController {
 
     // ==================== PATCH 请求示例 ====================
 
+    /**
+     * 部分更新用户
+     *
+     * @param id      用户ID
+     * @param updates 更新字段
+     * @return 更新后的用户
+     */
     @Operation(summary = "部分更新用户", description = "只更新传递的字段，未传递的字段保持不变")
     @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<User> partialUpdate(
@@ -229,6 +313,12 @@ public class UserController {
 
     // ==================== DELETE 请求示例 ====================
 
+    /**
+     * 删除单个用户
+     *
+     * @param id 用户ID
+     * @return 空响应
+     */
     @Operation(summary = "删除单个用户", description = "根据ID删除用户")
     @ApiResponse(responseCode = "204", description = "删除成功")
     @DeleteMapping("/{id}")
@@ -236,6 +326,12 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * 批量删除用户
+     *
+     * @param ids 用户ID列表
+     * @return 批量操作结果
+     */
     @Operation(summary = "批量删除用户", description = "根据ID列表批量删除用户")
     @DeleteMapping("/batch")
     public ResponseEntity<BatchResult> batchDelete(
@@ -246,6 +342,15 @@ public class UserController {
 
     // ==================== 文件上传示例 ====================
 
+    /**
+     * 上传单个文件
+     *
+     * @param file     文件
+     * @param category 文件分类
+     * @param isPublic 是否公开
+     * @return 上传结果
+     * @throws IOException 文件处理异常
+     */
     @Operation(summary = "上传单个文件", description = "上传单个文件，支持任意类型")
     @PostMapping(path = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FileUploadResult> uploadFile(
@@ -261,6 +366,14 @@ public class UserController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * 上传多个文件
+     *
+     * @param files    文件列表
+     * @param category 文件分类
+     * @return 上传结果列表
+     * @throws IOException 文件处理异常
+     */
     @Operation(summary = "上传多个文件", description = "同时上传多个文件")
     @PostMapping(path = "/upload/multiple", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<List<FileUploadResult>> uploadMultiple(
@@ -278,6 +391,12 @@ public class UserController {
 
     // ==================== 文件下载示例 ====================
 
+    /**
+     * 下载文件
+     *
+     * @param fileId 文件ID
+     * @return 文件内容
+     */
     @Operation(summary = "下载文件", description = "根据文件ID下载文件")
     @ApiResponse(
             responseCode = "200",
@@ -300,6 +419,16 @@ public class UserController {
 
     // ==================== 请求头示例 ====================
 
+    /**
+     * 获取请求头信息
+     *
+     * @param authorization  授权令牌
+     * @param clientType    客户端类型
+     * @param apiVersion    API版本
+     * @param acceptLanguage 语言
+     * @param userAgent     用户代理
+     * @return 请求头信息
+     */
     @Operation(summary = "获取请求头信息", description = "演示获取各种请求头")
     @GetMapping("/headers")
     public ResponseEntity<Map<String, Object>> getHeaders(
@@ -319,6 +448,13 @@ public class UserController {
 
     // ==================== Cookie 示例 ====================
 
+    /**
+     * 获取Cookie信息
+     *
+     * @param sessionId   会话ID
+     * @param preferences 用户偏好设置
+     * @return Cookie信息
+     */
     @Operation(summary = "获取Cookie信息", description = "演示获取Cookie值")
     @GetMapping("/cookie")
     public ResponseEntity<Map<String, Object>> getCookie(
@@ -333,6 +469,11 @@ public class UserController {
         return ResponseEntity.ok(cookies);
     }
 
+    /**
+     * 设置Cookie
+     *
+     * @return 空响应
+     */
     @Operation(summary = "设置Cookie", description = "演示设置Cookie值")
     @PostMapping("/cookie")
     public ResponseEntity<Void> setCookie() {
@@ -344,6 +485,12 @@ public class UserController {
 
     // ==================== 状态码示例 ====================
 
+    /**
+     * 获取不同状态码响应
+     *
+     * @param code 状态码
+     * @return 状态码响应
+     */
     @Operation(summary = "获取不同状态码响应", description = "根据参数返回不同的HTTP状态码")
     @GetMapping("/status/{code}")
     public ResponseEntity<Map<String, Object>> getStatus(
@@ -359,12 +506,23 @@ public class UserController {
 
     // ==================== 纯文本和二进制示例 ====================
 
+    /**
+     * 返回纯文本
+     *
+     * @return 纯文本内容
+     */
     @Operation(summary = "返回纯文本", description = "返回text/plain格式的内容")
     @GetMapping(path = "/text", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> getText() {
         return ResponseEntity.ok("这是一段纯文本内容，用于演示text/plain响应。");
     }
 
+    /**
+     * 接收纯文本
+     *
+     * @param text 文本内容
+     * @return 处理结果
+     */
     @Operation(summary = "接收纯文本", description = "接收text/plain格式的请求体")
     @PostMapping(path = "/text", consumes = MediaType.TEXT_PLAIN_VALUE,
             produces = MediaType.TEXT_PLAIN_VALUE)
@@ -373,6 +531,11 @@ public class UserController {
         return ResponseEntity.ok("收到文本: " + text);
     }
 
+    /**
+     * 返回HTML
+     *
+     * @return HTML内容
+     */
     @Operation(summary = "返回HTML", description = "返回text/html格式的内容")
     @GetMapping(path = "/html", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> getHtml() {
@@ -383,6 +546,12 @@ public class UserController {
 
     // ==================== 复杂数据类型示例 ====================
 
+    /**
+     * 处理嵌套对象
+     *
+     * @param order 订单信息
+     * @return 创建的订单
+     */
     @Operation(summary = "处理嵌套对象", description = "演示嵌套JSON对象的处理")
     @PostMapping("/nested")
     public ResponseEntity<Order> createOrder(
@@ -392,6 +561,12 @@ public class UserController {
         return ResponseEntity.ok(order);
     }
 
+    /**
+     * 处理Map数据
+     *
+     * @param data 请求数据
+     * @return 处理结果
+     */
     @Operation(summary = "处理Map数据", description = "演示动态结构的Map数据处理")
     @PostMapping("/map")
     public ResponseEntity<Map<String, Object>> processMap(
@@ -403,6 +578,12 @@ public class UserController {
 
     // ==================== 枚举参数示例 ====================
 
+    /**
+     * 按状态查询用户
+     *
+     * @param status 用户状态
+     * @return 用户列表
+     */
     @Operation(summary = "按状态查询用户", description = "演示枚举类型参数")
     @GetMapping("/by-status/{status}")
     public ResponseEntity<List<User>> getByStatus(
@@ -417,6 +598,11 @@ public class UserController {
 
     // ==================== 响应头示例 ====================
 
+    /**
+     * 自定义响应头
+     *
+     * @return 包含自定义头的响应
+     */
     @Operation(summary = "自定义响应头", description = "演示添加自定义响应头")
     @GetMapping("/custom-headers")
     public ResponseEntity<Map<String, Object>> withCustomHeaders() {
@@ -429,6 +615,12 @@ public class UserController {
 
     // ==================== 异步示例 ====================
 
+    /**
+     * 异步处理请求
+     *
+     * @param task 任务数据
+     * @return 任务信息
+     */
     @Operation(summary = "异步处理请求", description = "演示异步处理模式，返回处理任务ID")
     @PostMapping("/async")
     public ResponseEntity<Map<String, Object>> asyncProcess(
@@ -442,6 +634,12 @@ public class UserController {
         return ResponseEntity.accepted().body(result);
     }
 
+    /**
+     * 查询异步任务结果
+     *
+     * @param taskId 任务ID
+     * @return 任务结果
+     */
     @Operation(summary = "查询异步任务结果", description = "根据任务ID查询异步处理结果")
     @GetMapping("/async/{taskId}")
     public ResponseEntity<Map<String, Object>> getAsyncResult(@PathVariable String taskId) {
@@ -454,6 +652,13 @@ public class UserController {
 
     // ==================== 条件请求示例 ====================
 
+    /**
+     * 条件GET请求
+     *
+     * @param id          用户ID
+     * @param ifNoneMatch If-None-Match 头
+     * @return 用户信息或 304
+     */
     @Operation(summary = "条件GET请求", description = "使用If-None-Match头实现条件请求")
     @GetMapping("/conditional/{id}")
     public ResponseEntity<User> conditionalGet(
