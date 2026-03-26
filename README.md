@@ -143,15 +143,15 @@ mvn -q -DskipTests package
 
 ```bash
 # 终端1：启动用户服务
-cd springdoc-plus-examples/user-service-example
+cd springdoc-plus-samples/user-service-sample
 mvn -q spring-boot:run
 
 # 终端2：启动订单服务
-cd springdoc-plus-examples/order-service-example
+cd springdoc-plus-samples/order-service-sample
 mvn -q spring-boot:run
 
 # 终端3：启动网关服务
-cd springdoc-plus-examples/gateway-example
+cd springdoc-plus-samples/gateway-sample
 mvn -q spring-boot:run
 ```
 
@@ -197,7 +197,7 @@ springdoc-plus:
       enabled: true
       version: openapi3
       excluded-services:
-        - gateway-example
+        - gateway-sample
 ```
 
 **discover 模式依赖条件：**
