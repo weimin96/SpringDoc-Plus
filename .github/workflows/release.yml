@@ -1,15 +1,10 @@
-# Release 构建与发布工作流
-# 当推送 tag 时触发，构建并发布到 Maven Central
-
-name: Build and Release
+name: deploy
 
 on:
+  workflow_dispatch:
   push:
     tags:
-      - 'v*'
-
-permissions:
-  contents: write
+      - '*'
 
 jobs:
   # 构建和测试
@@ -24,6 +19,14 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: 缓存 Maven 依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: 构建项目
         run: mvn -q -DskipTests package
@@ -44,31 +47,41 @@ jobs:
       - name: Checkout 代码
         uses: actions/checkout@v4
 
-      - name: 设置 JDK 21
+      - name: 设置 JDK 21（导入 GPG 密钥）
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
+          # gpg-passphrase 填写环境变量名，setup-java 会自动用该变量解锁密钥
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
-          gpg-passphrase: GPG_PASSPHRASE=${{ secrets.GPG_PASSPHRASE }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: 缓存 Maven 依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
       - name: 创建 Maven settings.xml
         run: |
+          mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
-                <id>ossrh</id>
-                <username>${{ secrets.CENTER_USERNAME }}</username>
-                <password>${{ secrets.CENTER_PASSWORD }}</password>
+                <!-- 与 pom.xml 中 publishingServerId 保持一致 -->
+                <id>central</id>
+                <username>${env.CENTER_USERNAME}</username>
+                <password>${env.CENTER_PASSWORD}</password>
               </server>
             </servers>
             <profiles>
               <profile>
-                <id>gpg</id>
+                <id>release</id>
                 <properties>
-                  <gpg.keyname>${{ secrets.GPG_KEY_NAME }}</gpg.keyname>
-                  <gpg.passphrase>${{ secrets.GPG_PASSPHRASE }}</gpg.passphrase>
+                  <gpg.passphrase>${env.GPG_PASSPHRASE}</gpg.passphrase>
                 </properties>
               </profile>
             </profiles>
@@ -76,7 +89,40 @@ jobs:
           EOF
 
       - name: 发布到 Maven Central
-        run: mvn deploy -DskipTests -DskipJavadoc=false -Pgpg
+        # 激活 pom.xml 中的 release profile，该 profile 包含：
+        # central-publishing-maven-plugin / maven-gpg-plugin / maven-javadoc-plugin / maven-source-plugin
+        run: mvn deploy -DskipTests -Prelease
         env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           CENTER_USERNAME: ${{ secrets.CENTER_USERNAME }}
           CENTER_PASSWORD: ${{ secrets.CENTER_PASSWORD }}
+
+  # 创建 GitHub Release
+  release:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: artifacts
+          path: release-assets
+
+      - name: 提取 Tag 版本号
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.version }}
+          name: Release ${{ steps.tag.outputs.version }}
+          generate_release_notes: true
+          files: release-assets/**/*

@@ -53,7 +53,7 @@
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-openapi3-spring-boot-starter</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
@@ -70,7 +70,7 @@
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 ```
 
