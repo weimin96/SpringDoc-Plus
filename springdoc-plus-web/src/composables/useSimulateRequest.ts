@@ -255,11 +255,11 @@ export function useSimulateRequest(
     initParams()
   }
 
-  // 仅在 operationId 变化时重置，避免不必要的初始化
+  // 当接口变化时重置（通过 method + path 判断）
   watch(itemRef, (newVal, oldVal) => {
-    const newId = newVal?.operation?.operationId
-    const oldId = oldVal?.operation?.operationId
-    if (newId !== oldId) {
+    const newKey = newVal ? `${newVal.method}-${newVal.path}` : ''
+    const oldKey = oldVal ? `${oldVal.method}-${oldVal.path}` : ''
+    if (newKey !== oldKey) {
       reset()
     }
   }, { deep: false })
