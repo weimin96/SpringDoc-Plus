@@ -1,0 +1,154 @@
+package io.github.weimin96.springdocplus.gateway.discover;
+
+import io.github.weimin96.springdocplus.gateway.discover.route.GatewayRouteDefinitionResolver;
+import io.github.weimin96.springdocplus.gateway.discover.route.GatewayRouteDefinitionResolver.ResolvedRoute;
+import org.junit.jupiter.api.Test;
+import org.springframework.cloud.gateway.route.RouteDefinition;
+import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
+import org.springframework.cloud.gateway.support.NameUtils;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
+
+import java.net.URI;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * GatewayRouteDefinitionResolver 单元测试
+ *
+ * @author pwm
+ */
+class GatewayRouteDefinitionResolverTest {
+
+    /**
+     * 测试正常解析 lb:// 服务
+     */
+    @Test
+    void testResolve_lbScheme() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("user-route");
+        rd.setUri(URI.create("lb://user-service"));
+
+        Map<String, String> predicates = new HashMap<>();
+        predicates.put(NameUtils.GENERATED_NAME_PREFIX + "0", "/user-service/**");
+        rd.setPredicates(Collections.singletonList(
+                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.predicate()
+                        .name("Path")
+                        .args(predicates)
+                        .build()
+        ));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("user-service");
+                    assertThat(route.contextPath()).isEqualTo("/user-service");
+                    assertThat(route.rawPathPattern()).isEqualTo("/user-service/**");
+                })
+                .verifyComplete();
+    }
+
+    /**
+     * 测试非 lb:// 方案被过滤
+     */
+    @Test
+    void testResolve_nonLbScheme_filtered() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("http-route");
+        rd.setUri(URI.create("http://example.com"));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .verifyComplete();
+    }
+
+    /**
+     * 测试带 StripPrefix 过滤器的路由
+     */
+    @Test
+    void testResolve_withStripPrefix() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("api-route");
+        rd.setUri(URI.create("lb://api-service"));
+
+        // Path predicate
+        Map<String, String> predicates = new HashMap<>();
+        predicates.put(NameUtils.GENERATED_NAME_PREFIX + "0", "/api/v1/**");
+        rd.setPredicates(Collections.singletonList(
+                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.predicate()
+                        .name("Path")
+                        .args(predicates)
+                        .build()
+        ));
+
+        // StripPrefix filter
+        Map<String, String> filterArgs = new HashMap<>();
+        filterArgs.put(NameUtils.GENERATED_NAME_PREFIX + "0", "1");
+        rd.setFilters(Collections.singletonList(
+                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.filter()
+                        .name("StripPrefix")
+                        .args(filterArgs)
+                        .build()
+        ));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("api-service");
+                    assertThat(route.contextPath()).isEqualTo("/api");
+                    assertThat(route.stripPrefix()).isEqualTo(1);
+                })
+                .verifyComplete();
+    }
+
+    /**
+     * 测试多路径模式（逗号分隔）取第一个
+     */
+    @Test
+    void testResolve_multiplePathPatterns() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("multi-route");
+        rd.setUri(URI.create("lb://multi-service"));
+
+        // 多个路径用逗号分隔
+        Map<String, String> predicates = new HashMap<>();
+        predicates.put(NameUtils.GENERATED_NAME_PREFIX + "0", "/service-a/**,/service-b/**");
+        rd.setPredicates(Collections.singletonList(
+                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.predicate()
+                        .name("Path")
+                        .args(predicates)
+                        .build()
+        ));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("multi-service");
+                    assertThat(route.contextPath()).isEqualTo("/service-a");
+                })
+                .verifyComplete();
+    }
+
+    /**
+     * 测试空路由列表
+     */
+    @Test
+    void testResolve_emptyRoutes() {
+        RouteDefinitionLocator locator = () -> Flux.empty();
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .verifyComplete();
+    }
+}

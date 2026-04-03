@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import yaml from 'js-yaml'
 import type { OpenApiSpec, TagGroup, OperationItem, HttpMethod } from '@/types/openapi'
 import type { MergedConfig } from '@/types'
 
@@ -15,26 +16,60 @@ export function useOpenApi(cfg: MergedConfig) {
     spec.value = null
     try {
       const headers: Record<string, string> = {}
-      // inject auth header if configured
+      // inject auth headers if configured
       if (cfg.authEnabled) {
-        const name = (cfg.authHeaderName || 'Authorization').trim()
-        let val = (cfg.authValue || '').trim()
-        if (name && val) {
-          const prefix = (cfg.authDefaultPrefix || '').trim()
-          if (prefix && !val.startsWith(prefix + ' ')) val = `${prefix} ${val}`
-          headers[name] = val
+        const authHeaders = cfg.authHeaders
+        // 优先使用新版本多 header 配置，回退到旧版本单 header
+        if (authHeaders && authHeaders.length > 0) {
+          authHeaders.forEach(h => {
+            if (h.name) {
+              let val = (h.value || '').trim()
+              if (val) {
+                const prefix = (h.defaultPrefix || '').trim()
+                if (prefix && !val.startsWith(prefix + ' ')) {
+                  val = `${prefix} ${val}`
+                }
+                headers[h.name.trim()] = val
+              }
+            }
+          })
+        } else if (cfg.authHeaderName) {
+          // 旧版本单 header 配置兼容
+          const name = (cfg.authHeaderName || 'Authorization').trim()
+          let val = (cfg.authValue || '').trim()
+          if (name && val) {
+            const prefix = (cfg.authDefaultPrefix || '').trim()
+            if (prefix && !val.startsWith(prefix + ' ')) val = `${prefix} ${val}`
+            headers[name] = val
+          }
         }
       }
       const res = await fetch(url, { headers })
       if (!res.ok) throw new Error(`HTTP ${res.status} — 无法加载文档 spec`)
       const contentType = res.headers.get('content-type') || ''
+      const responseText = await res.text()
       let data: OpenApiSpec
+
       if (contentType.includes('yaml') || url.endsWith('.yaml') || url.endsWith('.yml')) {
-        // minimal YAML support: just try JSON fallback
-        throw new Error('暂不支持 YAML 格式，请使用 JSON spec 地址')
+        // 支持 YAML 格式解析
+        try {
+          data = yaml.load(responseText) as OpenApiSpec
+        } catch (e) {
+          throw new Error(`YAML 格式解析失败: ${e instanceof Error ? e.message : String(e)}`)
+        }
       } else {
-        data = await res.json() as OpenApiSpec
+        // JSON 格式
+        try {
+          data = JSON.parse(responseText) as OpenApiSpec
+        } catch (e) {
+          throw new Error(`JSON 格式解析失败: ${e instanceof Error ? e.message : String(e)}`)
+        }
       }
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('无效的 OpenAPI 文档格式')
+      }
+
       spec.value = data
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
