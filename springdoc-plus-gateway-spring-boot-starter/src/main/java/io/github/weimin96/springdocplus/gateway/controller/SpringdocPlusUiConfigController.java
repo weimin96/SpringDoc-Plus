@@ -1,7 +1,7 @@
 package io.github.weimin96.springdocplus.gateway.controller;
 
+import io.github.weimin96.springdocplus.core.model.SpringdocPlusUiConfig;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
-import io.github.weimin96.springdocplus.gateway.controller.dto.SpringdocPlusUiConfig;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;

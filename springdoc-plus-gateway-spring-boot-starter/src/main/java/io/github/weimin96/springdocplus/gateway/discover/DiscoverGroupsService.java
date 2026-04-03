@@ -1,21 +1,29 @@
 package io.github.weimin96.springdocplus.gateway.discover;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import io.github.weimin96.springdocplus.gateway.discover.route.GatewayRouteDefinitionResolver;
+import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
 import io.github.weimin96.springdocplus.core.enums.GatewayStrategy;
 import io.github.weimin96.springdocplus.core.model.GatewayRoute;
-import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
-import io.github.weimin96.springdocplus.gateway.discover.route.GatewayRouteDefinitionResolver;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
+import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
- * 生成”可用分组列表”。
+ * 生成“可用分组列表”。
  * <p>
  * - manual: 直接使用 springdoc-plus.gateway.routes
  * - discover:
@@ -69,63 +77,54 @@ public class DiscoverGroupsService {
      * @return 网关路由分组列表
      */
     public List<GatewayRoute> getGroups(Optional<List<String>> discoverServiceIds) {
-        // 生成缓存 key：基于服务发现列表的 hashcode
-        String cacheKey = “groups-” + (discoverServiceIds.map(List::hashCode).orElse(0));
-
-        // 尝试从缓存获取
-        List<GatewayRoute> cached = groupsCache.getIfPresent(cacheKey);
-        if (cached != null) {
-            log.debug(“从缓存获取分组列表，key: {}”, cacheKey);
-            return cached;
+        if (props.getStrategy() == GatewayStrategy.MANUAL) {
+            return sort(copy(props.getRoutes()));
         }
 
-        // 计算分组列表
+        String cacheKey = buildCacheKey(discoverServiceIds);
+
+        List<GatewayRoute> cached = groupsCache.getIfPresent(cacheKey);
+        if (cached != null) {
+            log.debug("从缓存获取分组列表，key: {}", cacheKey);
+            return copy(cached);
+        }
+
         List<GatewayRoute> result = computeGroups(discoverServiceIds);
-
-        // 放入缓存
-        groupsCache.put(cacheKey, result);
-
-        log.debug(“生成分组列表 {} 个条目，已放入缓存”, result.size());
-
+        groupsCache.put(cacheKey, copy(result));
+        log.debug("生成分组列表 {} 个条目，已放入缓存", result.size());
         return result;
+    }
+
+    public Mono<List<GatewayRoute>> getGroupsReactive(Optional<List<String>> discoverServiceIds) {
+        if (props.getStrategy() == GatewayStrategy.MANUAL) {
+            return Mono.just(sort(copy(props.getRoutes())));
+        }
+
+        String cacheKey = buildCacheKey(discoverServiceIds);
+        List<GatewayRoute> cached = groupsCache.getIfPresent(cacheKey);
+        if (cached != null) {
+            log.debug("从缓存获取分组列表，key: {}", cacheKey);
+            return Mono.just(copy(cached));
+        }
+
+        return resolveContextPathsReactive()
+                .map(inferredContextPath -> computeGroups(discoverServiceIds, inferredContextPath))
+                .doOnNext(result -> {
+                    groupsCache.put(cacheKey, copy(result));
+                    log.debug("生成分组列表 {} 个条目，已放入缓存", result.size());
+                });
     }
 
     /**
      * 计算分组列表（核心逻辑）
      */
     private List<GatewayRoute> computeGroups(Optional<List<String>> discoverServiceIds) {
-        if (props.getStrategy() == GatewayStrategy.MANUAL) {
-            return sort(copy(props.getRoutes()));
-        }
+        return computeGroups(discoverServiceIds, resolveContextPathsBlocking());
+    }
 
-        // DISCOVER
+    private List<GatewayRoute> computeGroups(Optional<List<String>> discoverServiceIds, Map<String, String> inferredContextPath) {
         List<GatewayRoute> routes = new ArrayList<>();
 
-        // 0) 基于 Gateway routes 推断 serviceId -> contextPath（使用异步收集避免阻塞）
-        Map<String, String> inferredContextPath = new HashMap<>();
-        if (props.getDiscover().isResolveContextPathFromGatewayRoutes() && routeDefinitionLocator != null) {
-            GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(routeDefinitionLocator);
-            // 使用 collectList().block() 异步收集，注意：这仍是阻塞调用但在 WebFlux 上下文外是可接受的
-            // 更好的做法是让调用方使用响应式版本，但为了保持兼容性这里使用 block
-            List<GatewayRouteDefinitionResolver.ResolvedRoute> resolvedRoutes;
-            try {
-                resolvedRoutes = resolver.resolve().collectList().block();
-            } catch (Exception e) {
-                // 路由解析失败时记录日志并继续（避免整个分组列表失败）
-                log.warn("从 Gateway 路由定义解析 contextPath 失败: {}", e.getMessage());
-                resolvedRoutes = Collections.emptyList();
-            }
-            if (resolvedRoutes != null) {
-                for (GatewayRouteDefinitionResolver.ResolvedRoute r : resolvedRoutes) {
-                    if (r.contextPath() != null && !r.contextPath().isBlank()) {
-                        inferredContextPath.put(r.serviceId(), r.contextPath());
-                    }
-                }
-                log.debug("从 Gateway 路由定义推断 contextPath: {}", inferredContextPath);
-            }
-        }
-
-        // 1) 来自 discover 的默认分组（default）
         discoverServiceIds.ifPresent(serviceIds -> {
             log.debug("服务发现获取到的服务列表: {}", serviceIds);
             for (String serviceId : serviceIds) {
@@ -136,14 +135,11 @@ public class DiscoverGroupsService {
                 SpringdocPlusGatewayProperties.ServiceConfig sc = props.getDiscover().getServiceConfig().get(serviceId);
                 String contextPath = sc != null && sc.getContextPath() != null ? sc.getContextPath() : inferredContextPath.get(serviceId);
                 if (contextPath == null || contextPath.isBlank()) {
-                    // fallback：按常见 pattern 兜底
                     contextPath = "/" + serviceId;
                 }
 
-                // default group
                 routes.add(buildRoute(serviceId, sc, contextPath, null));
 
-                // extra groups
                 if (sc != null && sc.getGroupNames() != null) {
                     for (String g : sc.getGroupNames()) {
                         if (g == null || g.isBlank()) {
@@ -155,14 +151,58 @@ public class DiscoverGroupsService {
             }
         });
 
-        // 2) routes 中的自定义补充/覆写（支持 manual 混搭）
-        for (GatewayRoute custom : props.getRoutes()) {
+        for (GatewayRoute custom : copy(props.getRoutes())) {
             routes.removeIf(r -> Objects.equals(r.getServiceName(), custom.getServiceName())
                     && Objects.equals(nullToEmpty(r.getGroup()), nullToEmpty(custom.getGroup())));
             routes.add(custom);
         }
 
         return sort(routes);
+    }
+
+    private Map<String, String> resolveContextPathsBlocking() {
+        if (!props.getDiscover().isResolveContextPathFromGatewayRoutes() || routeDefinitionLocator == null) {
+            return Collections.emptyMap();
+        }
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(routeDefinitionLocator);
+        try {
+            List<GatewayRouteDefinitionResolver.ResolvedRoute> resolvedRoutes = resolver.resolve().collectList().block();
+            return toContextPathMap(resolvedRoutes == null ? Collections.emptyList() : resolvedRoutes);
+        } catch (Exception e) {
+            log.warn("从 Gateway 路由定义解析 contextPath 失败: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    private Mono<Map<String, String>> resolveContextPathsReactive() {
+        if (!props.getDiscover().isResolveContextPathFromGatewayRoutes() || routeDefinitionLocator == null) {
+            return Mono.just(Collections.emptyMap());
+        }
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(routeDefinitionLocator);
+        return resolver.resolve()
+                .collectList()
+                .map(this::toContextPathMap)
+                .onErrorResume(ex -> {
+                    log.warn("从 Gateway 路由定义解析 contextPath 失败: {}", ex.getMessage());
+                    return Mono.just(Collections.emptyMap());
+                });
+    }
+
+    private Map<String, String> toContextPathMap(List<GatewayRouteDefinitionResolver.ResolvedRoute> resolvedRoutes) {
+        Map<String, String> inferredContextPath = new HashMap<>();
+        for (GatewayRouteDefinitionResolver.ResolvedRoute route : resolvedRoutes) {
+            if (route.contextPath() != null && !route.contextPath().isBlank()) {
+                inferredContextPath.putIfAbsent(route.serviceId(), route.contextPath());
+            }
+        }
+        log.debug("从 Gateway 路由定义推断 contextPath: {}", inferredContextPath);
+        return inferredContextPath;
+    }
+
+    private String buildCacheKey(Optional<List<String>> discoverServiceIds) {
+        List<String> normalized = new ArrayList<>(discoverServiceIds.orElseGet(Collections::emptyList));
+        normalized.sort(String.CASE_INSENSITIVE_ORDER);
+        return "groups-" + normalized.hashCode();
     }
 
     private GatewayRoute buildRoute(String serviceId, SpringdocPlusGatewayProperties.ServiceConfig sc, String contextPath, String group) {
@@ -208,8 +248,8 @@ public class DiscoverGroupsService {
                 if (Pattern.compile(exp, Pattern.CASE_INSENSITIVE).matcher(serviceId).matches()) {
                     return true;
                 }
-            } catch (Exception ignore) {
-                // ignore invalid regex
+            } catch (Exception ex) {
+                log.warn("忽略非法 excluded-services 正则 [{}]: {}", exp, ex.getMessage());
             }
         }
         return false;

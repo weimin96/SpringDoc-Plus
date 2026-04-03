@@ -2,9 +2,12 @@ package io.github.weimin96.springdocplus.openapi3;
 
 import io.github.weimin96.springdocplus.openapi3.controller.DocHtmlController;
 import io.github.weimin96.springdocplus.openapi3.controller.SingleOpenApiGroupsController;
+import io.github.weimin96.springdocplus.openapi3.controller.SingleOpenApiUiConfigController;
+import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -18,6 +21,7 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration
 @ConditionalOnClass(name = "org.springdoc.webmvc.ui.SwaggerConfig")
 @ConditionalOnProperty(prefix = "springdoc-plus.openapi3", name = "enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties(SpringdocPlusOpenApi3Properties.class)
 public class SpringdocPlusOpenApi3StarterAutoConfiguration {
 
     /**
@@ -36,8 +40,13 @@ public class SpringdocPlusOpenApi3StarterAutoConfiguration {
      * @return SingleOpenApiGroupsController 实例
      */
     @Bean
-    public SingleOpenApiGroupsController singleOpenApiGroupsController() {
-        return new SingleOpenApiGroupsController();
+    public SingleOpenApiGroupsController singleOpenApiGroupsController(SpringdocPlusOpenApi3Properties props) {
+        return new SingleOpenApiGroupsController(props);
+    }
+
+    @Bean
+    public SingleOpenApiUiConfigController singleOpenApiUiConfigController(SpringdocPlusOpenApi3Properties props) {
+        return new SingleOpenApiUiConfigController(props);
     }
 
     /**

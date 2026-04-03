@@ -1,7 +1,8 @@
 package io.github.weimin96.springdocplus.gateway.discover;
 
 import io.github.weimin96.springdocplus.gateway.discover.route.GatewayRouteDefinitionResolver;
-import io.github.weimin96.springdocplus.gateway.discover.route.GatewayRouteDefinitionResolver.ResolvedRoute;
+import org.springframework.cloud.gateway.filter.FilterDefinition;
+import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
@@ -34,12 +35,10 @@ class GatewayRouteDefinitionResolverTest {
 
         Map<String, String> predicates = new HashMap<>();
         predicates.put(NameUtils.GENERATED_NAME_PREFIX + "0", "/user-service/**");
-        rd.setPredicates(Collections.singletonList(
-                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.predicate()
-                        .name("Path")
-                        .args(predicates)
-                        .build()
-        ));
+        PredicateDefinition pathPredicate = new PredicateDefinition();
+        pathPredicate.setName("Path");
+        pathPredicate.setArgs(predicates);
+        rd.setPredicates(Collections.singletonList(pathPredicate));
 
         RouteDefinitionLocator locator = () -> Flux.just(rd);
         GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
@@ -81,22 +80,17 @@ class GatewayRouteDefinitionResolverTest {
         // Path predicate
         Map<String, String> predicates = new HashMap<>();
         predicates.put(NameUtils.GENERATED_NAME_PREFIX + "0", "/api/v1/**");
-        rd.setPredicates(Collections.singletonList(
-                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.predicate()
-                        .name("Path")
-                        .args(predicates)
-                        .build()
-        ));
+        PredicateDefinition pathPredicate = new PredicateDefinition();
+        pathPredicate.setName("Path");
+        pathPredicate.setArgs(predicates);
+        rd.setPredicates(Collections.singletonList(pathPredicate));
 
-        // StripPrefix filter
         Map<String, String> filterArgs = new HashMap<>();
         filterArgs.put(NameUtils.GENERATED_NAME_PREFIX + "0", "1");
-        rd.setFilters(Collections.singletonList(
-                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.filter()
-                        .name("StripPrefix")
-                        .args(filterArgs)
-                        .build()
-        ));
+        FilterDefinition stripPrefixFilter = new FilterDefinition();
+        stripPrefixFilter.setName("StripPrefix");
+        stripPrefixFilter.setArgs(filterArgs);
+        rd.setFilters(Collections.singletonList(stripPrefixFilter));
 
         RouteDefinitionLocator locator = () -> Flux.just(rd);
         GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
@@ -122,12 +116,10 @@ class GatewayRouteDefinitionResolverTest {
         // 多个路径用逗号分隔
         Map<String, String> predicates = new HashMap<>();
         predicates.put(NameUtils.GENERATED_NAME_PREFIX + "0", "/service-a/**,/service-b/**");
-        rd.setPredicates(Collections.singletonList(
-                org.springframework.cloud.gateway.route.builder.RouteDefinitionBuilder.predicate()
-                        .name("Path")
-                        .args(predicates)
-                        .build()
-        ));
+        PredicateDefinition pathPredicate = new PredicateDefinition();
+        pathPredicate.setName("Path");
+        pathPredicate.setArgs(predicates);
+        rd.setPredicates(Collections.singletonList(pathPredicate));
 
         RouteDefinitionLocator locator = () -> Flux.just(rd);
         GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);

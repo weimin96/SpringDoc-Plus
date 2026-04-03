@@ -13,4 +13,80 @@
   <name>springdoc-plus-ui</name>
   <packaging>jar</packaging>
 
+  <properties>
+    <frontend.workingDirectory>${project.basedir}/../springdoc-plus-web</frontend.workingDirectory>
+    <frontend.outputDirectory>${project.build.outputDirectory}/META-INF/resources/springdoc-plus-ui</frontend.outputDirectory>
+    <skipFrontendBuild>false</skipFrontendBuild>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>build-web-ui</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <skip>${skipFrontendBuild}</skip>
+              <workingDirectory>${frontend.workingDirectory}</workingDirectory>
+              <executable>pnpm</executable>
+              <arguments>
+                <argument>run</argument>
+                <argument>build</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${frontend.outputDirectory}</directory>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>copy-built-ui</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${frontend.outputDirectory}</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${frontend.workingDirectory}/dist</directory>
+                </resource>
+                <resource>
+                  <directory>${project.basedir}/src/main/resources</directory>
+                  <excludes>
+                    <exclude>META-INF/resources/springdoc-plus-ui/**</exclude>
+                  </excludes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>

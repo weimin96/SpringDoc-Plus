@@ -1,5 +1,8 @@
 package io.github.weimin96.springdocplus.openapi3.properties;
 
+import io.github.weimin96.springdocplus.core.enums.GroupOrderStrategy;
+import io.github.weimin96.springdocplus.core.model.SpringdocPlusGatewayAuth;
+import io.github.weimin96.springdocplus.core.model.SpringdocPlusGatewayHttpBasic;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -31,6 +34,26 @@ public class SpringdocPlusOpenApi3Properties {
      * 分组列表配置
      */
     private List<Group> groups = new ArrayList<>();
+
+    /**
+     * tag 排序策略
+     */
+    private GroupOrderStrategy tagsSorter = GroupOrderStrategy.alpha;
+
+    /**
+     * operation 排序策略
+     */
+    private GroupOrderStrategy operationsSorter = GroupOrderStrategy.alpha;
+
+    /**
+     * UI 认证配置
+     */
+    private SpringdocPlusGatewayAuth auth = new SpringdocPlusGatewayAuth();
+
+    /**
+     * Basic 提示配置
+     */
+    private SpringdocPlusGatewayHttpBasic basic = new SpringdocPlusGatewayHttpBasic();
 
     /**
      * 分组配置

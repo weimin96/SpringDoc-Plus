@@ -2,6 +2,8 @@ package io.github.weimin96.springdocplus.openapi3.controller;
 
 import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
 import io.swagger.v3.oas.annotations.Hidden;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +23,8 @@ import java.util.Map;
  */
 @RestController
 public class SingleOpenApiGroupsController {
+
+    private static final Logger log = LoggerFactory.getLogger(SingleOpenApiGroupsController.class);
 
     private final SpringdocPlusOpenApi3Properties props;
 
@@ -63,6 +67,7 @@ public class SingleOpenApiGroupsController {
             ));
         }
 
+        log.debug("返回单服务分组 {} 个", groupList.size());
         return Map.of("groups", groupList);
     }
 }

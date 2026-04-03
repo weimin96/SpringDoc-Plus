@@ -5,7 +5,6 @@ import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import reactor.core.publisher.Flux;
 
 import java.net.URI;
-import java.util.Objects;
 
 /**
  * 从 Spring Cloud Gateway 的 RouteDefinition 中解析：
@@ -34,9 +33,12 @@ public class GatewayRouteDefinitionResolver {
      */
     public Flux<ResolvedRoute> resolve() {
         return locator.getRouteDefinitions()
-                .filter(obj -> true)
-                .map(this::toResolved)
-                .filter(Objects::nonNull);
+                .handle((routeDefinition, sink) -> {
+                    ResolvedRoute resolved = toResolved(routeDefinition);
+                    if (resolved != null) {
+                        sink.next(resolved);
+                    }
+                });
     }
 
     private ResolvedRoute toResolved(RouteDefinition rd) {

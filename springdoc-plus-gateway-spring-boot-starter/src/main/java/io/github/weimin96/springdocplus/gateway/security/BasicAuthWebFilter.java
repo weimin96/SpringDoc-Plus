@@ -50,6 +50,13 @@ public class BasicAuthWebFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        String username = props.getBasic().getUsername();
+        String password = props.getBasic().getPassword();
+        if (!StringUtils.hasText(username) || !StringUtils.hasText(password)) {
+            log.warn("Basic Auth 已启用，但用户名或密码为空，拒绝访问受保护资源");
+            return unauthorized(exchange);
+        }
+
         String auth = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(auth) || !auth.startsWith("Basic ")) {
             return unauthorized(exchange);
@@ -63,8 +70,7 @@ public class BasicAuthWebFilter implements WebFilter {
             return unauthorized(exchange);
         }
 
-        String expected = (props.getBasic().getUsername() == null ? "" : props.getBasic().getUsername())
-                + ":" + (props.getBasic().getPassword() == null ? "" : props.getBasic().getPassword());
+        String expected = username + ":" + password;
 
         // 使用恒定时间比对，防止时序攻击
         boolean matches = MessageDigest.isEqual(
