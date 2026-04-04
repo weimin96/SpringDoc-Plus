@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ApiGroup } from '@/types'
 import type { TagGroup } from '@/types/openapi'
 
 const props = defineProps<{
   groups: ApiGroup[]
-  activeUrl: string | null
+  activeGroupUrl: string | null
+  activeOperationKey: string | null
   tagGroups: TagGroup[]
   collapsed: boolean
   loading: boolean
@@ -21,35 +22,39 @@ const expandedTags = ref<Set<string>>(new Set())
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw) return props.groups
-  return props.groups.filter((g) => g.name.toLowerCase().includes(kw))
+  if (!kw) {
+    return props.groups
+  }
+  return props.groups.filter((group) => group.name.toLowerCase().includes(kw))
 })
 
 const filteredTagGroups = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw) return props.tagGroups
+  if (!kw) {
+    return props.tagGroups
+  }
   return props.tagGroups
-    .map((g) => ({
-      ...g,
-      operations: g.operations.filter(
+    .map((group) => ({
+      ...group,
+      operations: group.operations.filter(
         (op) =>
           op.path.toLowerCase().includes(kw) ||
           op.operation.summary?.toLowerCase().includes(kw) ||
           op.operation.operationId?.toLowerCase().includes(kw),
       ),
     }))
-    .filter((g) => g.operations.length > 0)
+    .filter((group) => group.operations.length > 0)
 })
 
 function toggleTag(tagName: string) {
   if (expandedTags.value.has(tagName)) {
     expandedTags.value.delete(tagName)
-  } else {
-    expandedTags.value.add(tagName)
+    return
   }
+  expandedTags.value.add(tagName)
 }
 
-function isTagExpanded(tagName: string): boolean {
+function isTagExpanded(tagName: string) {
   return expandedTags.value.has(tagName)
 }
 </script>
@@ -57,10 +62,9 @@ function isTagExpanded(tagName: string): boolean {
 <template>
   <aside
     class="flex flex-shrink-0 flex-col overflow-hidden border-r border-[var(--c-border)] bg-[var(--c-surface)] transition-[width,opacity] duration-250"
-    :class="collapsed ? 'w-0 opacity-0 pointer-events-none' : 'w-64'"
+    :class="collapsed ? 'w-0 pointer-events-none opacity-0' : 'w-64'"
     style="transition-timing-function:cubic-bezier(.4,0,.2,1)"
   >
-    <!-- Search -->
     <div class="relative flex-shrink-0 px-3 py-2.5">
       <div class="relative">
         <svg
@@ -73,7 +77,7 @@ function isTagExpanded(tagName: string): boolean {
         <input
           v-model="keyword"
           class="w-full rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] py-1.5 pl-[30px] pr-7 text-xs text-[var(--c-text)] outline-none transition-[border-color,box-shadow] placeholder:text-[#b0b7c3] focus:border-[var(--c-primary)] focus:bg-white focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.1)]"
-          placeholder="搜索文档组…"
+          placeholder="搜索文档组或接口"
           autocomplete="off"
         />
         <button
@@ -90,12 +94,9 @@ function isTagExpanded(tagName: string): boolean {
       </div>
     </div>
 
-    <!-- Nav -->
     <nav class="flex-1 overflow-y-auto px-2 py-1">
-      <!-- 文档组列表 -->
       <p class="px-2 py-2 text-[10px] font-bold uppercase tracking-widest text-[#9ca3af]">文档组</p>
 
-      <!-- Skeleton -->
       <template v-if="loading">
         <div
           v-for="i in 4"
@@ -105,32 +106,30 @@ function isTagExpanded(tagName: string): boolean {
         />
       </template>
 
-      <!-- List -->
       <template v-else>
         <button
-          v-for="g in filtered"
-          :key="g.url"
+          v-for="group in filtered"
+          :key="group.url"
           class="flex w-full cursor-pointer items-center gap-2 overflow-hidden rounded-lg border-none px-2.5 py-[7px] text-left text-[13px] text-[var(--c-text)] transition-[background,color] hover:bg-[var(--c-bg)]"
-          :class="activeUrl === g.url ? 'bg-[var(--c-primary-light)] font-medium !text-[var(--c-primary)]' : ''"
-          :title="g.name"
-          @click="emit('select', g)"
+          :class="activeGroupUrl === group.url ? 'bg-[var(--c-primary-light)] font-medium !text-[var(--c-primary)]' : ''"
+          :title="group.name"
+          @click="emit('select', group)"
         >
           <span
             class="h-[5px] w-[5px] min-w-[5px] flex-shrink-0 rounded-full bg-current opacity-30"
-            :class="activeUrl === g.url ? '!opacity-100' : ''"
+            :class="activeGroupUrl === group.url ? '!opacity-100' : ''"
           />
-          <span class="truncate">{{ g.name }}</span>
+          <span class="truncate">{{ group.name }}</span>
         </button>
+
         <p v-if="filtered.length === 0" class="py-6 text-center text-xs text-[var(--c-muted)]">
           无匹配文档组
         </p>
       </template>
 
-      <!-- 分隔线 -->
-      <div v-if="activeUrl && filteredTagGroups.length" class="my-3 border-t border-[var(--c-border)]" />
+      <div v-if="activeGroupUrl && filteredTagGroups.length" class="my-3 border-t border-[var(--c-border)]" />
 
-      <!-- 接口分组列表 -->
-      <template v-if="activeUrl && filteredTagGroups.length">
+      <template v-if="activeGroupUrl && filteredTagGroups.length">
         <p class="px-2 py-2 text-[10px] font-bold uppercase tracking-widest text-[#9ca3af]">接口分组</p>
 
         <template v-for="tagGroup in filteredTagGroups" :key="tagGroup.name">
@@ -158,10 +157,10 @@ function isTagExpanded(tagName: string): boolean {
               v-for="op in tagGroup.operations"
               :key="`${op.method}-${op.path}`"
               class="mb-0.5 cursor-pointer rounded-md px-2 py-1.5 text-[11px] text-[var(--c-muted)] hover:bg-[var(--c-bg)] hover:text-[var(--c-text)]"
-              :class="activeUrl === op.path ? 'bg-[var(--c-primary-light)] !text-[var(--c-primary)]' : ''"
+              :class="activeOperationKey === `${op.method}:${op.path}` ? 'bg-[var(--c-primary-light)] !text-[var(--c-primary)]' : ''"
               @click.stop="emit('selectOperation', { method: op.method, path: op.path, summary: op.operation.summary })"
             >
-              <div class="truncate text-[var(--c-text)]" :class="{ 'font-medium': activeUrl === op.path }">
+              <div class="truncate text-[var(--c-text)]" :class="{ 'font-medium': activeOperationKey === `${op.method}:${op.path}` }">
                 {{ op.operation.summary || op.path }}
               </div>
               <div v-if="op.operation.summary" class="mt-0.5 flex items-center gap-2 truncate text-[10px] opacity-70">

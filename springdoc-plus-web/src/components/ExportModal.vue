@@ -240,6 +240,15 @@ watch(() => props.visible, (v) => {
         <div class="flex max-h-[calc(90vh-120px)] overflow-hidden">
           <!-- Left Panel -->
           <div class="w-[320px] flex-shrink-0 overflow-y-auto border-r border-[var(--c-border)] p-4">
+            <div class="mb-4 rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] p-3">
+              <h3 class="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">使用说明</h3>
+              <div class="space-y-2 text-[12px] leading-5 text-[var(--c-muted)]">
+                <p>可编辑字段：标题、版本、描述。</p>
+                <p>模板用法：下载默认模板后按需调整样式或占位内容，再上传你自己的 `.docx` 模板导出。</p>
+                <p>右侧勾选哪些接口，最终 DOCX 就导出哪些接口；不勾选时默认导出全部。</p>
+              </div>
+            </div>
+
             <!-- 基本信息 -->
             <div v-if="swaggerInfo" class="mb-4 rounded-lg border border-[var(--c-border)] p-3">
               <h3 class="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">基本信息</h3>
@@ -275,6 +284,9 @@ watch(() => props.visible, (v) => {
             <!-- 模板选择 -->
             <div class="mb-4 rounded-lg border border-[var(--c-border)] p-3">
               <h3 class="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">DOCX 模板</h3>
+              <p class="mb-2 text-[12px] leading-5 text-[var(--c-muted)]">
+                不上传时会自动尝试加载默认模板。上传自定义模板后，可以复用你自己的封面、页眉、页脚和章节样式。
+              </p>
               <input
                 type="file"
                 accept=".docx"

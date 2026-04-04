@@ -2,11 +2,18 @@ package io.github.weimin96.springdocplus.gateway.discover;
 
 import io.github.weimin96.springdocplus.core.enums.GatewayStrategy;
 import io.github.weimin96.springdocplus.core.model.GatewayRoute;
+import org.springframework.cloud.gateway.filter.FilterDefinition;
+import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.cloud.gateway.route.RouteDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
+import org.springframework.cloud.gateway.support.NameUtils;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
+import java.net.URI;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -243,5 +250,96 @@ class DiscoverGroupsServiceTest {
         List<GatewayRoute> result = service.getGroups(Optional.empty());
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void reactiveGroupsUseResolvedGatewayRoutesAndCustomOverride() {
+        props.setStrategy(GatewayStrategy.DISCOVER);
+        props.getDiscover().setResolveContextPathFromGatewayRoutes(true);
+        props.getDiscover().setOpenapi3Url("/v3/api-docs?lang=zh");
+
+        SpringdocPlusGatewayProperties.ServiceConfig serviceConfig = new SpringdocPlusGatewayProperties.ServiceConfig();
+        serviceConfig.setGroupName("Users");
+        serviceConfig.setGroupNames(Arrays.asList("admin", "", null));
+        props.getDiscover().getServiceConfig().put("user-service", serviceConfig);
+
+        GatewayRoute custom = new GatewayRoute();
+        custom.setServiceName("user-service");
+        custom.setName("Users Override");
+        custom.setContextPath("/custom-users");
+        custom.setUrl("/custom-users/v3/api-docs?lang=zh");
+        custom.setOrder(99);
+        props.setRoutes(List.of(custom));
+
+        RouteDefinition routeDefinition = new RouteDefinition();
+        routeDefinition.setUri(URI.create("lb://user-service"));
+        PredicateDefinition predicate = new PredicateDefinition();
+        predicate.setName("Path");
+        predicate.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "/gateway-users/**"));
+        routeDefinition.setPredicates(List.of(predicate));
+        routeDefinitionLocator = () -> Flux.just(routeDefinition);
+
+        DiscoverGroupsService service = new DiscoverGroupsService(props, routeDefinitionLocator);
+
+        StepVerifier.create(service.getGroupsReactive(Optional.of(List.of("user-service"))))
+                .assertNext(routes -> {
+                    assertThat(routes).hasSize(2);
+                    assertThat(routes).anyMatch(r -> "Users Override".equals(r.getName())
+                            && "/custom-users".equals(r.getContextPath()));
+                    assertThat(routes).anyMatch(r -> "admin".equals(r.getGroup())
+                            && "/gateway-users/v3/api-docs?lang=zh&group=admin".equals(r.getUrl()));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void blockingGroupsFallBackWhenGatewayRouteResolutionFailsAndIgnoreInvalidRegex() {
+        props.setStrategy(GatewayStrategy.DISCOVER);
+        props.getDiscover().setResolveContextPathFromGatewayRoutes(true);
+        props.getDiscover().setExcludedServices(Set.of("[", "skip-me"));
+        routeDefinitionLocator = () -> Flux.error(new IllegalStateException("boom"));
+
+        DiscoverGroupsService service = new DiscoverGroupsService(props, routeDefinitionLocator);
+
+        List<GatewayRoute> result = service.getGroups(Optional.of(List.of("user-service", "skip-me")));
+
+        assertThat(result).singleElement().satisfies(route -> {
+            assertThat(route.getServiceName()).isEqualTo("user-service");
+            assertThat(route.getContextPath()).isEqualTo("/user-service");
+        });
+    }
+
+    @Test
+    void reactiveGroupsReturnCachedCopiesForEquivalentServiceLists() {
+        props.setStrategy(GatewayStrategy.DISCOVER);
+        props.getDiscover().setResolveContextPathFromGatewayRoutes(false);
+
+        DiscoverGroupsService service = new DiscoverGroupsService(props, routeDefinitionLocator);
+
+        List<GatewayRoute> first = service.getGroupsReactive(Optional.of(List.of("b-service", "a-service"))).block();
+        assertThat(first).hasSize(2);
+        first.clear();
+
+        List<GatewayRoute> second = service.getGroupsReactive(Optional.of(List.of("a-service", "b-service"))).block();
+        assertThat(second).hasSize(2);
+        assertThat(second).extracting(GatewayRoute::getServiceName).containsExactly("b-service", "a-service");
+    }
+
+    @Test
+    void reactiveGroupsHandleGatewayResolverErrors() {
+        props.setStrategy(GatewayStrategy.DISCOVER);
+        props.getDiscover().setResolveContextPathFromGatewayRoutes(true);
+        routeDefinitionLocator = () -> Flux.error(new IllegalArgumentException("route error"));
+
+        DiscoverGroupsService service = new DiscoverGroupsService(props, routeDefinitionLocator);
+
+        StepVerifier.create(service.getGroupsReactive(Optional.of(List.of("demo-service"))))
+                .assertNext(routes -> {
+                    assertThat(routes).singleElement().satisfies(route -> {
+                        assertThat(route.getContextPath()).isEqualTo("/demo-service");
+                        assertThat(route.getUrl()).isEqualTo("/demo-service/v3/api-docs");
+                    });
+                })
+                .verifyComplete();
     }
 }

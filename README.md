@@ -2,6 +2,7 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.weimin96/springdoc-plus.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.weimin96/springdoc-plus)
 [![License](https://img.shields.io/github/license/weimin96/springdoc-plus)](https://github.com/weimin96/springdoc-plus/blob/main/LICENSE)
+[![Coverage Status](https://coveralls.io/repos/github/weimin96/SpringDoc-Plus/badge.svg?branch=main)](https://coveralls.io/github/weimin96/SpringDoc-Plus?branch=main)
 [![Java Version](https://img.shields.io/badge/Java-21-blue)](https://www.oracle.com/java/technologies/downloads/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)](https://spring.io/projects/spring-boot)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.1.0-green)](https://spring.io/projects/spring-cloud)
@@ -53,7 +54,7 @@
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-openapi3-spring-boot-starter</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 </dependency>
 ```
 
@@ -70,7 +71,7 @@
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 </dependency>
 ```
 

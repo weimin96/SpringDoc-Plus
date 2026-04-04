@@ -2,6 +2,7 @@ package io.github.weimin96.springdocplus.openapi3.controller;
 
 import io.github.weimin96.springdocplus.core.model.SpringdocPlusUiConfig;
 import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -24,6 +25,7 @@ public class SingleOpenApiUiConfigController {
         this.props = props;
     }
 
+    @Hidden
     @GetMapping(value = "/springdoc-plus-gateway/ui-config", produces = MediaType.APPLICATION_JSON_VALUE)
     public SpringdocPlusUiConfig config() {
         SpringdocPlusUiConfig config = new SpringdocPlusUiConfig();

@@ -143,4 +143,43 @@ class GatewayRouteDefinitionResolverTest {
         StepVerifier.create(resolver.resolve())
                 .verifyComplete();
     }
+
+    @Test
+    void testResolve_nullUriAndBlankHostAreFiltered() {
+        RouteDefinition nullUri = new RouteDefinition();
+        nullUri.setId("null-uri");
+
+        RouteDefinition blankHost = new RouteDefinition();
+        blankHost.setId("blank-host");
+        blankHost.setUri(URI.create("lb:///missing-host"));
+
+        RouteDefinitionLocator locator = () -> Flux.just(nullUri, blankHost);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .verifyComplete();
+    }
+
+    @Test
+    void testResolve_withoutPathAndInvalidStripPrefix() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("no-path");
+        rd.setUri(URI.create("lb://users"));
+
+        FilterDefinition stripPrefixFilter = new FilterDefinition();
+        stripPrefixFilter.setName("StripPrefix");
+        stripPrefixFilter.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "abc"));
+        rd.setFilters(Collections.singletonList(stripPrefixFilter));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("users");
+                    assertThat(route.contextPath()).isNull();
+                    assertThat(route.stripPrefix()).isNull();
+                })
+                .verifyComplete();
+    }
 }
