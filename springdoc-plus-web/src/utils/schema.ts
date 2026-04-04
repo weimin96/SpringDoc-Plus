@@ -29,16 +29,41 @@ export function resolveSchemaRef(
  */
 export function buildSchemaExample(
   schema: SchemaObject | null,
-  schemas?: Record<string, SchemaObject>
+  schemas?: Record<string, SchemaObject>,
+  _visited: Set<string> = new Set()
 ): unknown {
-  if (!schema) return null
+  if (!schema) return {}
 
-  const resolved = resolveSchemaRef(schema, schemas)
-  if (!resolved) return null
+  // 解析 $ref，防止循环引用
+  let resolved = resolveSchemaRef(schema, schemas)
+  if (!resolved) return {}
+
+  // 防止循环引用：记录已访问的 $ref
+  if (schema.$ref) {
+    const refKey = schema.$ref
+    if (_visited.has(refKey)) return {}
+    _visited = new Set(_visited).add(refKey)
+  }
 
   // 优先使用显式示例值
   if (resolved.example !== undefined) return resolved.example
   if (resolved.default !== undefined) return resolved.default
+
+  // allOf / anyOf / oneOf 取第一个合并
+  if (resolved.allOf?.length) {
+    const merged: Record<string, unknown> = {}
+    for (const sub of resolved.allOf) {
+      const subExample = buildSchemaExample(sub as SchemaObject, schemas, _visited)
+      if (subExample && typeof subExample === 'object' && !Array.isArray(subExample)) {
+        Object.assign(merged, subExample)
+      }
+    }
+    return merged
+  }
+  if (resolved.anyOf?.length || resolved.oneOf?.length) {
+    const first = (resolved.anyOf ?? resolved.oneOf)![0]
+    return buildSchemaExample(first as SchemaObject, schemas, _visited)
+  }
 
   // 根据类型构建示例
   switch (resolved.type) {
@@ -46,24 +71,43 @@ export function buildSchemaExample(
       const obj: Record<string, unknown> = {}
       if (resolved.properties) {
         for (const [key, val] of Object.entries(resolved.properties)) {
-          obj[key] = buildSchemaExample(val as SchemaObject, schemas)
+          const fieldVal = buildSchemaExample(val as SchemaObject, schemas, _visited)
+          obj[key] = fieldVal
         }
       }
       return obj
     }
     case 'array':
       return resolved.items
-        ? [buildSchemaExample(resolved.items as SchemaObject, schemas)]
+        ? [buildSchemaExample(resolved.items as SchemaObject, schemas, _visited)]
         : []
-    case 'string':
-      return resolved.enum?.[0] ?? 'string'
+    case 'string': {
+      if (resolved.enum?.[0] !== undefined) return resolved.enum[0]
+      if (resolved.format === 'date-time') return '2024-01-01T00:00:00Z'
+      if (resolved.format === 'date') return '2024-01-01'
+      if (resolved.format === 'email') return 'user@example.com'
+      if (resolved.format === 'uri') return 'https://example.com'
+      if (resolved.format === 'uuid') return '00000000-0000-0000-0000-000000000000'
+      return 'string'
+    }
     case 'integer':
-    case 'number':
       return 0
+    case 'number':
+      return 0.0
     case 'boolean':
       return false
-    default:
-      return null
+    default: {
+      // 没有 type 但有 properties，推断为 object
+      if (resolved.properties) {
+        const obj: Record<string, unknown> = {}
+        for (const [key, val] of Object.entries(resolved.properties)) {
+          obj[key] = buildSchemaExample(val as SchemaObject, schemas, _visited)
+        }
+        return obj
+      }
+      // 有 $ref 但未解析到，返回空对象而非 null
+      return {}
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 import { ref, type Ref, watch } from 'vue'
 import type { OperationItem, SchemaObject } from '@/types/openapi'
-import { generateJsonSchemaExample, resolveSchemaRef } from '@/utils/schema'
+import { generateJsonSchemaExample } from '@/utils/schema'
 
 export interface RequestParam {
   name: string
@@ -25,15 +25,23 @@ export interface CustomHeader {
   value: string
 }
 
+/** 每个接口的缓存快照 */
+interface OperationSnapshot {
+  params: RequestParam[]
+  requestBody: string
+  contentType: string
+  bodyParams: Record<string, string>
+}
+
 /**
  * 模拟请求 Composable
- * 支持填写参数值、发送 HTTP 请求、显示响应结果
- * @param itemRef 操作项（响应式引用）
- * @param contextPathRef 网关模式下的路径前缀（响应式引用）
+ * - schemasRef: 用于正确解析 $ref 生成 JSON 示例
+ * - 切换接口时自动保存/恢复用户编辑的请求体和参数
  */
 export function useSimulateRequest(
   itemRef: Ref<OperationItem>,
-  contextPathRef?: Ref<string | undefined>
+  contextPathRef?: Ref<string | undefined>,
+  schemasRef?: Ref<Record<string, SchemaObject> | undefined>
 ) {
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -43,9 +51,38 @@ export function useSimulateRequest(
   const contentType = ref<string>('application/json')
   const bodyParams = ref<Record<string, string>>({})
 
-  // 初始化参数列表
-  function initParams() {
-    const item = itemRef.value
+  /** 按 "method-path" 缓存用户编辑的状态 */
+  const snapshotCache = new Map<string, OperationSnapshot>()
+
+  function itemKey(item: OperationItem) {
+    return `${item.method}-${item.path}`
+  }
+
+  /** 将当前界面状态保存到缓存 */
+  function saveSnapshot(key: string) {
+    snapshotCache.set(key, {
+      params: params.value.map(p => ({ ...p })),
+      requestBody: requestBody.value,
+      contentType: contentType.value,
+      bodyParams: { ...bodyParams.value },
+    })
+  }
+
+  /** 从缓存恢复状态，若无缓存则初始化默认值 */
+  function restoreOrInit(item: OperationItem) {
+    const key = itemKey(item)
+    const cached = snapshotCache.get(key)
+
+    if (cached) {
+      // 恢复用户上次编辑的内容
+      params.value = cached.params.map(p => ({ ...p }))
+      requestBody.value = cached.requestBody
+      contentType.value = cached.contentType
+      bodyParams.value = { ...cached.bodyParams }
+      return
+    }
+
+    // 无缓存 → 初始化默认值
     const parameters = item.operation.parameters ?? []
     params.value = parameters.map(p => {
       const example = p.example !== undefined
@@ -53,7 +90,6 @@ export function useSimulateRequest(
         : p.schema?.example !== undefined
           ? String(p.schema.example)
           : undefined
-
       return {
         name: p.name,
         in: p.in as 'path' | 'query' | 'header' | 'cookie',
@@ -73,12 +109,16 @@ export function useSimulateRequest(
       contentType.value = mediaType
       if (mediaType === 'application/json') {
         const schema = rb.content[mediaType]?.schema ?? null
-        requestBody.value = generateJsonSchemaExample(schema)
+        requestBody.value = generateJsonSchemaExample(schema, schemasRef?.value)
+      } else {
+        requestBody.value = ''
       }
+    } else {
+      contentType.value = 'application/json'
+      requestBody.value = ''
     }
   }
 
-  // 构建完整 URL
   function buildUrl(): string {
     const item = itemRef.value
     const contextPath = contextPathRef?.value
@@ -103,8 +143,6 @@ export function useSimulateRequest(
     return base + path
   }
 
-  // 构建请求头
-  // 注意：传入 formData 时不设置 Content-Type，由浏览器自动添加 boundary
   function buildHeaders(customHeaders?: CustomHeader[], formData?: FormData): Record<string, string> {
     const item = itemRef.value
     const headers: Record<string, string> = {}
@@ -115,13 +153,10 @@ export function useSimulateRequest(
 
     if (customHeaders) {
       customHeaders.forEach(h => {
-        if (h.name && h.value) {
-          headers[h.name] = h.value
-        }
+        if (h.name && h.value) headers[h.name] = h.value
       })
     }
 
-    // 有 FormData 时不手动设置 Content-Type，让浏览器自动处理（含 boundary）
     if (!formData && item.operation.requestBody) {
       headers['Content-Type'] = contentType.value
     }
@@ -129,44 +164,30 @@ export function useSimulateRequest(
     return headers
   }
 
-  // 根据请求体参数构建请求体 JSON
   function buildBodyFromParams(): string {
     const item = itemRef.value
     const schema = item.operation.requestBody?.content?.[contentType.value]?.schema
-    if (!schema || !schema.properties) {
-      return requestBody.value
-    }
+    if (!schema || !schema.properties) return requestBody.value
 
     const obj: Record<string, any> = {}
     for (const [key, propSchema] of Object.entries(schema.properties)) {
       const p = propSchema as any
       const val = bodyParams.value[key]
-
       if (val !== undefined && val !== '') {
         if (p.type === 'number' || p.type === 'integer') {
           obj[key] = Number(val)
         } else if (p.type === 'boolean') {
           obj[key] = val === 'true'
         } else if (p.type === 'object' || p.type === 'array') {
-          try {
-            obj[key] = JSON.parse(val)
-          } catch {
-            obj[key] = val
-          }
+          try { obj[key] = JSON.parse(val) } catch { obj[key] = val }
         } else {
           obj[key] = val
         }
       }
     }
-
     return JSON.stringify(obj)
   }
 
-  /**
-   * 发送请求
-   * @param customHeaders 自定义请求头
-   * @param formData 文件/表单数据（multipart/form-data 场景）
-   */
   async function sendRequest(customHeaders?: CustomHeader[], formData?: FormData) {
     const item = itemRef.value
     loading.value = true
@@ -175,19 +196,14 @@ export function useSimulateRequest(
 
     const startTime = Date.now()
     const url = buildUrl()
-    // 有 FormData 时不设置 Content-Type header
     const headers = buildHeaders(customHeaders, formData)
     const method = item.method.toUpperCase()
 
     try {
-      const options: RequestInit = {
-        method,
-        headers,
-      }
+      const options: RequestInit = { method, headers }
 
       if (!['GET', 'HEAD'].includes(method) && item.operation.requestBody) {
         if (formData) {
-          // 直接使用 FormData 作为请求体
           options.body = formData
         } else {
           const bodyContent = Object.keys(bodyParams.value).length > 0
@@ -199,7 +215,6 @@ export function useSimulateRequest(
 
       const res = await fetch(url, options)
       const duration = Date.now() - startTime
-
       const resHeaders = Object.fromEntries(res.headers.entries())
 
       let data: unknown
@@ -212,13 +227,7 @@ export function useSimulateRequest(
         data = await res.blob()
       }
 
-      result.value = {
-        status: res.status,
-        statusText: res.statusText,
-        headers: resHeaders,
-        data,
-        duration,
-      }
+      result.value = { status: res.status, statusText: res.statusText, headers: resHeaders, data, duration }
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -235,6 +244,7 @@ export function useSimulateRequest(
     bodyParams.value[name] = value
   }
 
+  /** 仅重置请求体为默认示例（不清参数，不清缓存） */
   function resetRequestBody() {
     const item = itemRef.value
     const rb = item.operation.requestBody
@@ -243,28 +253,43 @@ export function useSimulateRequest(
       contentType.value = mediaType
       if (mediaType === 'application/json') {
         const schema = rb.content[mediaType]?.schema ?? null
-        requestBody.value = generateJsonSchemaExample(schema)
+        requestBody.value = generateJsonSchemaExample(schema, schemasRef?.value)
+      } else {
+        requestBody.value = ''
       }
     }
+    // 同步更新缓存
+    saveSnapshot(itemKey(item))
   }
 
+  /** 完全重置当前接口（清空缓存中该接口的记录，重新初始化） */
   function reset() {
+    const key = itemKey(itemRef.value)
+    snapshotCache.delete(key)   // 删除缓存，强制重新初始化
     result.value = null
     error.value = null
     bodyParams.value = {}
-    initParams()
+    restoreOrInit(itemRef.value)
   }
 
-  // 当接口变化时重置（通过 method + path 判断）
+  // 监听接口切换：先保存旧接口状态，再恢复/初始化新接口状态
   watch(itemRef, (newVal, oldVal) => {
-    const newKey = newVal ? `${newVal.method}-${newVal.path}` : ''
-    const oldKey = oldVal ? `${oldVal.method}-${oldVal.path}` : ''
-    if (newKey !== oldKey) {
-      reset()
-    }
+    const newKey = newVal ? itemKey(newVal) : ''
+    const oldKey = oldVal ? itemKey(oldVal) : ''
+    if (newKey === oldKey) return
+
+    // 保存旧接口当前编辑内容到缓存
+    if (oldKey) saveSnapshot(oldKey)
+
+    // 清除响应结果（每个接口的响应独立）
+    result.value = null
+    error.value = null
+
+    // 恢复新接口的缓存，或初始化默认值
+    restoreOrInit(newVal)
   }, { deep: false })
 
-  initParams()
+  restoreOrInit(itemRef.value)
 
   return {
     loading,
@@ -279,5 +304,7 @@ export function useSimulateRequest(
     updateBodyParam,
     resetRequestBody,
     reset,
+    saveSnapshot,
+    itemKey,
   }
 }

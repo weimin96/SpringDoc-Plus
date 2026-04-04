@@ -61,10 +61,8 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: springdoc-plus-web/pnpm-lock.yaml
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
+      - name: Enable corepack
+        run: corepack enable
 
       - name: Install dependencies
         working-directory: ./springdoc-plus-web
