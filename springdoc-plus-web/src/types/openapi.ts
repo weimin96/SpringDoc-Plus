@@ -84,6 +84,7 @@ export interface SchemaObject {
   format?: string
   description?: string
   properties?: Record<string, SchemaObject>
+  additionalProperties?: boolean | SchemaObject
   items?: SchemaObject
   $ref?: string
   required?: string[]

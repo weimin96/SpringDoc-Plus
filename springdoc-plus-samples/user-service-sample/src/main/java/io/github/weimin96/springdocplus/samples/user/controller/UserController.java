@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
@@ -161,17 +160,9 @@ public class UserController {
      * @return 创建的用户
      */
     @Operation(summary = "创建用户（JSON）", description = "使用application/json创建新用户")
-    @RequestBody(
-            description = "用户信息",
-            required = true,
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = @Schema(implementation = User.class)
-            )
-    )
     @ApiResponse(responseCode = "201", description = "创建成功")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<User> createJson(@org.springframework.web.bind.annotation.RequestBody User user) {
+    public ResponseEntity<User> createJson(@RequestBody User user) {
         user.setId(System.currentTimeMillis());
         user.setCreatedAt(LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
@@ -184,17 +175,9 @@ public class UserController {
      * @return 创建的用户
      */
     @Operation(summary = "创建用户（XML）", description = "使用application/xml创建新用户")
-    @RequestBody(
-            description = "用户信息（XML格式）",
-            required = true,
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_XML_VALUE,
-                    schema = @Schema(implementation = User.class)
-            )
-    )
     @PostMapping(path = "/xml", consumes = MediaType.APPLICATION_XML_VALUE,
             produces = MediaType.APPLICATION_XML_VALUE)
-    public ResponseEntity<User> createXml(@org.springframework.web.bind.annotation.RequestBody User user) {
+    public ResponseEntity<User> createXml(@RequestBody User user) {
         user.setId(System.currentTimeMillis());
         return ResponseEntity.ok(user);
     }

@@ -334,6 +334,7 @@ function retry() {
           </div>
 
           <OperationPanel
+            :key="`${selectedOpData.method}-${selectedOpData.path}`"
             :item="selectedOpData"
             :schemas="schemas"
             :context-path="contextPath"
