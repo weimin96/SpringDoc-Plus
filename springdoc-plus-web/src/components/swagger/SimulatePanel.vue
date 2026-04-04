@@ -211,6 +211,25 @@ watch(requestBodySchema, () => {
   if (!simulatePanelCollapsed.value) initJsonBody()
 })
 
+// 当接口变化时重置所有本地状态
+watch(() => props.item, (newVal, oldVal) => {
+  const newKey = newVal ? `${newVal.method}-${newVal.path}` : ''
+  const oldKey = oldVal ? `${oldVal.method}-${oldVal.path}` : ''
+  if (newKey !== oldKey) {
+    // 重置所有本地状态
+    formFieldValues.value = {}
+    formFileValues.value = {}
+    jsonBodyInitialized.value = false
+    customHeaders.value = []
+    // 调用 simulate.reset() 来重置 composable 中的状态
+    simulate.reset()
+    // 如果面板已展开，初始化 JSON 请求体
+    if (!simulatePanelCollapsed.value) {
+      initJsonBody()
+    }
+  }
+}, { deep: false })
+
 // 暴露给父组件
 defineExpose({
   simulate,
