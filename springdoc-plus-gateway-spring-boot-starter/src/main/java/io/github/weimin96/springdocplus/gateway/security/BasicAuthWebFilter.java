@@ -2,6 +2,8 @@ package io.github.weimin96.springdocplus.gateway.security;
 
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
@@ -11,6 +13,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Base64;
 
 /**
@@ -21,6 +24,8 @@ import java.util.Base64;
  * @author pwm
  */
 public class BasicAuthWebFilter implements WebFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(BasicAuthWebFilter.class);
 
     private final SpringdocPlusGatewayProperties props;
 
@@ -45,6 +50,13 @@ public class BasicAuthWebFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        String username = props.getBasic().getUsername();
+        String password = props.getBasic().getPassword();
+        if (!StringUtils.hasText(username) || !StringUtils.hasText(password)) {
+            log.warn("Basic Auth 已启用，但用户名或密码为空，拒绝访问受保护资源");
+            return unauthorized(exchange);
+        }
+
         String auth = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(auth) || !auth.startsWith("Basic ")) {
             return unauthorized(exchange);
@@ -58,10 +70,14 @@ public class BasicAuthWebFilter implements WebFilter {
             return unauthorized(exchange);
         }
 
-        String expected = (props.getBasic().getUsername() == null ? "" : props.getBasic().getUsername())
-                + ":" + (props.getBasic().getPassword() == null ? "" : props.getBasic().getPassword());
+        String expected = username + ":" + password;
 
-        if (!expected.equals(decoded)) {
+        // 使用恒定时间比对，防止时序攻击
+        boolean matches = MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                decoded.getBytes(StandardCharsets.UTF_8)
+        );
+        if (!matches) {
             return unauthorized(exchange);
         }
 
@@ -75,6 +91,8 @@ public class BasicAuthWebFilter implements WebFilter {
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange) {
+        String path = exchange.getRequest().getURI().getPath();
+        log.info("Basic Auth 鉴权失败，请求路径: {}", path);
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"springdoc-plus\"");
         return exchange.getResponse().setComplete();

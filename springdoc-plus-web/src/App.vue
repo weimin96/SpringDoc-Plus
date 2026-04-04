@@ -1,183 +1,184 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppTopbar from '@/components/AppTopbar.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import ContentArea from '@/components/ContentArea.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 
 import { useConfig } from '@/composables/useConfig'
+import { useOpenApi } from '@/composables/useOpenApi'
 import { fetchGroups, fetchServerUiConfig } from '@/composables/useApi'
 
 import type { ApiGroup, LocalUiConfig, ServerUiConfig } from '@/types'
-import type { OpenApiSpec, HttpMethod } from '@/types/openapi'
 
-// ── State ──────────────────────────────────────────
-const groups           = ref<ApiGroup[]>([])
-const activeGroup      = ref<ApiGroup | null>(null)
-const sidebarLoading   = ref(true)
+const groups = ref<ApiGroup[]>([])
+const activeGroup = ref<ApiGroup | null>(null)
+const sidebarLoading = ref(true)
 const sidebarCollapsed = ref(false)
-const showSettings     = ref(false)
-const serverConfig     = ref<ServerUiConfig>({})
+const showSettings = ref(false)
+const serverConfig = ref<ServerUiConfig>({})
 
-// 视图模式：overview（概览）或 operation（接口详情）
 type ViewMode = 'overview' | 'operation'
+
+interface RouteState {
+  groupUrl: string | null
+  viewMode: ViewMode
+  method?: string
+  path?: string
+}
+
 const viewMode = ref<ViewMode>('overview')
-
-// 当前选中的接口（用于侧边栏点击定位）
 const selectedOperation = ref<{ method: string; path: string; summary?: string } | null>(null)
+const pendingRouteState = ref<RouteState | null>(null)
 
-// config store
 const configStore = useConfig({})
+const { spec, loading: specLoading, error: specError, load: loadSpec, tagGroups } = useOpenApi(configStore.state)
 
-// Spec and loading state
-const spec = ref<OpenApiSpec | null>(null)
-const specLoading = ref(false)
-const specError = ref<string | null>(null)
+const activeOperationKey = computed(() =>
+  selectedOperation.value ? `${selectedOperation.value.method}:${selectedOperation.value.path}` : null,
+)
 
-const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace']
-
-// Tag groups computed from spec
-const tagGroups = computed(() => {
-  if (!spec.value?.paths) return []
-
-  const s = spec.value
-  const groups = new Map<string, { name: string; description?: string; order: number; operations: any[] }>()
-
-  // pre-populate from spec.tags to preserve order / description
-  const specTags = s.tags ?? []
-  specTags.forEach((t, i) => {
-    groups.set(t.name, {
-      name: t.name,
-      description: t.description,
-      order: t['x-order'] ?? i,
-      operations: [],
-    })
-  })
-
-  // walk paths
-  Object.entries(s.paths ?? {}).forEach(([path, item]) => {
-    HTTP_METHODS.forEach((method) => {
-      const op = item?.[method]
-      if (!op) return
-      const tags = op.tags?.length ? op.tags : ['默认']
-      tags.forEach((tag) => {
-        if (!groups.has(tag)) {
-          groups.set(tag, { name: tag, order: groups.size, operations: [] })
-        }
-        const opItem = {
-          method,
-          path,
-          operation: op,
-          order: op['x-order'] ?? groups.get(tag)!.operations.length,
-        }
-        groups.get(tag)!.operations.push(opItem)
-      })
-    })
-  })
-
-  // sort operations within each group
-  const sorter = configStore.state.operationsSorter
-  groups.forEach((g) => {
-    g.operations.sort((a: any, b: any) => {
-      if (sorter === 'order') return a.order - b.order
-      return `${a.method}${a.path}`.localeCompare(`${b.method}${b.path}`)
-    })
-  })
-
-  // sort groups
-  const arr = [...groups.values()]
-  if (configStore.state.tagsSorter === 'order') {
-    arr.sort((a, b) => a.order - b.order)
-  } else {
-    arr.sort((a, b) => a.name.localeCompare(b.name))
+function normalizeOperation(method?: string | null, path?: string | null) {
+  if (!method || !path) {
+    return null
   }
-
-  return arr
-})
-
-// ── Actions ────────────────────────────────────────
-async function loadSpec(url: string) {
-  specLoading.value = true
-  specError.value = null
-  try {
-    const headers: Record<string, string> = {}
-    // inject auth headers if configured
-    if (configStore.state.authEnabled) {
-      const authHeaders = configStore.state.authHeaders
-      // 优先使用新版本多 header 配置，回退到旧版本单 header
-      if (authHeaders && authHeaders.length > 0) {
-        authHeaders.forEach(h => {
-          if (h.name) {
-            let val = (h.value || '').trim()
-            if (val) {
-              const prefix = (h.defaultPrefix || '').trim()
-              if (prefix && !val.startsWith(prefix + ' ')) {
-                val = `${prefix} ${val}`
-              }
-              headers[h.name.trim()] = val
-            }
-          }
-        })
-      } else if (configStore.state.authHeaderName) {
-        // 旧版本单 header 配置兼容
-        const name = (configStore.state.authHeaderName || 'Authorization').trim()
-        let val = (configStore.state.authValue || '').trim()
-        if (name && val) {
-          const prefix = (configStore.state.authDefaultPrefix || '').trim()
-          if (prefix && !val.startsWith(prefix + ' ')) val = `${prefix} ${val}`
-          headers[name] = val
-        }
-      }
-    }
-    const res = await fetch(url, { headers })
-    if (!res.ok) throw new Error(`HTTP ${res.status} — 无法加载文档 spec`)
-    const contentType = res.headers.get('content-type') || ''
-    if (contentType.includes('yaml') || url.endsWith('.yaml') || url.endsWith('.yml')) {
-      throw new Error('暂不支持 YAML 格式，请使用 JSON spec 地址')
-    }
-    spec.value = await res.json() as OpenApiSpec
-  } catch (e) {
-    specError.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    specLoading.value = false
+  return {
+    method: method.toLowerCase(),
+    path,
   }
 }
 
-function selectGroup(group: ApiGroup) {
+function parseRouteState(): RouteState {
+  const url = new URL(window.location.href)
+  const groupUrl = url.searchParams.get('group')
+  const operation = normalizeOperation(url.searchParams.get('method'), url.searchParams.get('path'))
+
+  return {
+    groupUrl,
+    viewMode: operation ? 'operation' : 'overview',
+    method: operation?.method,
+    path: operation?.path,
+  }
+}
+
+function syncRouteState(replace = false) {
+  const url = new URL(window.location.href)
+
+  if (activeGroup.value?.url) {
+    url.searchParams.set('group', activeGroup.value.url)
+  } else {
+    url.searchParams.delete('group')
+  }
+
+  if (viewMode.value === 'operation' && selectedOperation.value) {
+    url.searchParams.set('view', 'operation')
+    url.searchParams.set('method', selectedOperation.value.method)
+    url.searchParams.set('path', selectedOperation.value.path)
+  } else {
+    url.searchParams.delete('view')
+    url.searchParams.delete('method')
+    url.searchParams.delete('path')
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`
+  if (replace) {
+    window.history.replaceState(null, '', nextUrl)
+  } else {
+    window.history.pushState(null, '', nextUrl)
+  }
+}
+
+function selectGroup(group: ApiGroup, replace = false) {
   activeGroup.value = group
   selectedOperation.value = null
   viewMode.value = 'overview'
+  syncRouteState(replace)
 }
 
-function onSelectOperation(op: { method: string; path: string; summary?: string }) {
+function onSelectOperation(op: { method: string; path: string; summary?: string }, replace = false) {
   selectedOperation.value = op
   viewMode.value = 'operation'
+  syncRouteState(replace)
 }
 
-function onReturnToOverview() {
+function onReturnToOverview(replace = false) {
   selectedOperation.value = null
   viewMode.value = 'overview'
+  syncRouteState(replace)
+}
+
+function applyRouteState(route: RouteState, replace = false) {
+  if (!groups.value.length) {
+    pendingRouteState.value = route
+    return
+  }
+
+  const targetGroup = groups.value.find((group) => group.url === route.groupUrl) ?? groups.value[0] ?? null
+  if (!targetGroup) {
+    return
+  }
+
+  if (!activeGroup.value || activeGroup.value.url !== targetGroup.url) {
+    activeGroup.value = targetGroup
+  }
+
+  const operation = normalizeOperation(route.method, route.path)
+  if (!operation) {
+    selectedOperation.value = null
+    viewMode.value = 'overview'
+    pendingRouteState.value = null
+    syncRouteState(replace)
+    return
+  }
+
+  const found = tagGroups.value
+    .flatMap((group) => group.operations)
+    .find((item) => item.method === operation.method && item.path === operation.path)
+
+  if (!found) {
+    pendingRouteState.value = route
+    return
+  }
+
+  selectedOperation.value = {
+    method: found.method,
+    path: found.path,
+    summary: found.operation.summary,
+  }
+  viewMode.value = 'operation'
+  pendingRouteState.value = null
+  syncRouteState(replace)
 }
 
 function onApply(local: LocalUiConfig) {
   configStore.applyLocal(local)
   showSettings.value = false
-  // 重新加载当前选中的 spec
   const current = activeGroup.value
   if (current) {
     loadSpec(current.url)
   }
 }
 
-// 当选中的文档组变化时，加载对应的 OpenAPI spec
 watch(activeGroup, (group) => {
   if (group) {
     loadSpec(group.url)
   }
 })
 
-// ── Init ───────────────────────────────────────────
+watch(tagGroups, () => {
+  if (pendingRouteState.value) {
+    applyRouteState(pendingRouteState.value, true)
+  }
+})
+
+const handlePopstate = () => {
+  applyRouteState(parseRouteState(), true)
+}
+
 onMounted(async () => {
+  pendingRouteState.value = parseRouteState()
+  window.addEventListener('popstate', handlePopstate)
+
   try {
     const [g, srv] = await Promise.all([
       fetchGroups(),
@@ -187,19 +188,28 @@ onMounted(async () => {
     groups.value = g
     serverConfig.value = srv
 
-    // 更新 config store
     Object.assign(configStore.state, useConfig(srv).state)
 
     if (!configStore.state.authPersist) {
       configStore.state.authValue = ''
     }
 
-    if (g.length) selectGroup(g[0])
+    if (g.length) {
+      if (pendingRouteState.value) {
+        applyRouteState(pendingRouteState.value, true)
+      } else {
+        selectGroup(g[0], true)
+      }
+    }
   } catch (_e) {
-    // errors are handled inside ContentArea via specUrl=null
+    // handled in content area
   } finally {
     sidebarLoading.value = false
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('popstate', handlePopstate)
 })
 </script>
 
@@ -216,7 +226,8 @@ onMounted(async () => {
   <div class="flex flex-1 overflow-hidden">
     <AppSidebar
       :groups="groups"
-      :active-url="activeGroup?.url ?? null"
+      :active-group-url="activeGroup?.url ?? null"
+      :active-operation-key="activeOperationKey"
       :tag-groups="tagGroups"
       :collapsed="sidebarCollapsed"
       :loading="sidebarLoading"
@@ -226,11 +237,16 @@ onMounted(async () => {
 
     <ContentArea
       :spec-url="activeGroup?.url ?? null"
+      :spec="spec"
+      :loading="specLoading"
+      :error="specError"
+      :tag-groups="tagGroups"
       :context-path="activeGroup?.contextPath"
       :config="configStore.state"
       :selected-operation="selectedOperation"
       :view-mode="viewMode"
       @operation-clicked="onReturnToOverview"
+      @select-operation="onSelectOperation"
     />
   </div>
 

@@ -52,6 +52,10 @@ public class DocHtmlController {
      */
     @GetMapping("/springdoc-plus-ui/assets/{filename}")
     public Mono<ResponseEntity<Resource>> uiAsset(@PathVariable String filename) {
+        // 路径遍历防护：白名单校验
+        if (!isValidFilename(filename)) {
+            return Mono.just(ResponseEntity.badRequest().build());
+        }
         return Mono.fromCallable(() -> {
                     Resource resource = resourceLoader.getResource("classpath:/META-INF/resources/springdoc-plus-ui/assets/" + filename);
                     String contentType = getContentType(filename);
@@ -70,6 +74,10 @@ public class DocHtmlController {
      */
     @GetMapping("/springdoc-plus-ui/{filename}")
     public Mono<ResponseEntity<Resource>> uiRootAsset(@PathVariable String filename) {
+        // 路径遍历防护：白名单校验
+        if (!isValidFilename(filename)) {
+            return Mono.just(ResponseEntity.badRequest().build());
+        }
         return Mono.fromCallable(() -> {
                     Resource resource = resourceLoader.getResource("classpath:/META-INF/resources/springdoc-plus-ui/" + filename);
                     String contentType = getContentType(filename);
@@ -78,6 +86,19 @@ public class DocHtmlController {
                             .header(HttpHeaders.CACHE_CONTROL, "no-cache")
                             .body(resource);
                 });
+    }
+
+    /**
+     * 校验文件名是否安全，防止路径遍历攻击
+     *
+     * @param filename 文件名
+     * @return 是否安全
+     */
+    private boolean isValidFilename(String filename) {
+        return filename != null
+                && !filename.contains("..")
+                && !filename.contains("/")
+                && !filename.contains("\\");
     }
 
     /**

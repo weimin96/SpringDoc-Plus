@@ -7,20 +7,19 @@ on:
       - '*'
 
 jobs:
-  # 构建和测试
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 设置 JDK 21
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '21'
 
-      - name: 缓存 Maven 依赖
+      - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
@@ -28,10 +27,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: 构建项目
+      - name: Build project
         run: mvn -q -DskipTests package
 
-      - name: 上传构建产物
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts
@@ -39,24 +38,22 @@ jobs:
             */target/*.jar
             */target/*.pom
 
-  # 发布到 Maven Central
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 设置 JDK 21（导入 GPG 密钥）
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '21'
-          # gpg-passphrase 填写环境变量名，setup-java 会自动用该变量解锁密钥
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
-      - name: 缓存 Maven 依赖
+      - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
@@ -64,14 +61,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: 创建 Maven settings.xml
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
-                <!-- 与 pom.xml 中 publishingServerId 保持一致 -->
                 <id>central</id>
                 <username>${env.CENTER_USERNAME}</username>
                 <password>${env.CENTER_PASSWORD}</password>
@@ -88,41 +84,69 @@ jobs:
           </settings>
           EOF
 
-      - name: 发布到 Maven Central
-        # 激活 pom.xml 中的 release profile，该 profile 包含：
-        # central-publishing-maven-plugin / maven-gpg-plugin / maven-javadoc-plugin / maven-source-plugin
+      - name: Deploy to Maven Central
         run: mvn deploy -DskipTests -Prelease
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           CENTER_USERNAME: ${{ secrets.CENTER_USERNAME }}
           CENTER_PASSWORD: ${{ secrets.CENTER_PASSWORD }}
 
-  # 创建 GitHub Release
   release:
     needs: deploy
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout 代码
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 下载构建产物
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           name: artifacts
           path: release-assets
 
-      - name: 提取 Tag 版本号
+      - name: Extract tag version
         id: tag
-        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
-      - name: 创建 GitHub Release
+      - name: Prepare release changelog
+        id: changelog
+        shell: bash
+        run: |
+          version="${{ steps.tag.outputs.version }}"
+          changelog_file="CHANGELOG.md"
+          release_notes_file="release-notes.md"
+
+          if [[ ! -f "$changelog_file" ]]; then
+            echo "CHANGELOG.md not found" > "$release_notes_file"
+            exit 0
+          fi
+
+          awk -v version="$version" '
+            BEGIN { capture = 0 }
+            $0 ~ "^## \\[" version "\\]" { capture = 1 }
+            capture && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" { exit }
+            capture { print }
+          ' "$changelog_file" > "$release_notes_file"
+
+          if [[ ! -s "$release_notes_file" ]]; then
+            {
+              echo "## $version"
+              echo
+              echo "No matching changelog section found in CHANGELOG.md."
+            } > "$release_notes_file"
+          fi
+
+          echo "path=$release_notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.version }}
           name: Release ${{ steps.tag.outputs.version }}
-          generate_release_notes: true
+          body_path: ${{ steps.changelog.outputs.path }}
           files: release-assets/**/*

@@ -14,6 +14,9 @@ importers:
       file-saver:
         specifier: ^2.0.5
         version: 2.0.5
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.1
       pizzip:
         specifier: ^3.2.0
         version: 3.2.0

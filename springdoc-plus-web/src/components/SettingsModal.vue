@@ -118,7 +118,7 @@ function handleApply() {
         </div>
 
         <!-- Body -->
-        <div class="max-h-[calc(100vh-200px)] overflow-y-auto p-5">
+        <form class="max-h-[calc(100vh-200px)] overflow-y-auto p-5" autocomplete="off" data-lpignore="true">
 
           <!-- 排序规则 -->
           <section class="mb-4">
@@ -172,6 +172,10 @@ function handleApply() {
             </div>
 
             <div v-if="form.authEnabled" class="space-y-3" style="animation:fade-in .15s ease">
+              <div class="rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] p-3 text-[12px] leading-5 text-[var(--c-muted)]">
+                这里配置的是请求 Header，不是站点登录密码。常见写法是 `Authorization + Bearer + token`，
+                也可以填写自定义 Header 名称和值。
+              </div>
               <!-- Header 列表 -->
               <div v-for="(header, index) in form.authHeaders" :key="index" class="rounded-lg border border-[var(--c-border)] bg-gray-50 p-3">
                 <div class="mb-2 flex items-center justify-between">
@@ -196,7 +200,20 @@ function handleApply() {
                   <input v-model="header.defaultPrefix" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="Bearer / Basic / (可空)" />
 
                   <label class="text-[13px] text-[var(--c-text)]">值</label>
-                  <input v-model="header.value" type="password" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]" placeholder="eyJhbGci…" autocomplete="off" />
+                  <input
+                    v-model="header.value"
+                    type="text"
+                    class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none transition-[border-color,box-shadow] focus:border-[var(--c-primary)] focus:shadow-[0_0_0_3px_rgb(37_99_235_/_0.12)]"
+                    placeholder="eyJhbGci…"
+                    inputmode="text"
+                    autocomplete="new-password"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    data-lpignore="true"
+                    data-1p-ignore="true"
+                    data-form-type="other"
+                  />
                 </div>
               </div>
 
@@ -228,7 +245,7 @@ function handleApply() {
               网关 Basic 认证已开启，访问 UI 可能需要先完成浏览器认证。
             </div>
           </section>
-        </div>
+        </form>
 
         <!-- Footer -->
         <div class="flex items-center gap-2 border-t border-[var(--c-border)] bg-gray-50 px-4 py-3">
