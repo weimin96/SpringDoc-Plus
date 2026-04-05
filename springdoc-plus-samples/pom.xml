@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.weimin96</groupId>
         <artifactId>springdoc-plus</artifactId>
-        <version>0.1.3</version>
+        <version>0.1.4</version>
     </parent>
 
     <artifactId>springdoc-plus-samples</artifactId>

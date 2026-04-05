@@ -1,5 +1,8 @@
 name: deploy
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_dispatch:
   push:
@@ -150,6 +153,7 @@ jobs:
         shell: bash
         run: |
           version="${{ steps.tag.outputs.version }}"
+          normalized_version="${version#v}"
           changelog_file="CHANGELOG.md"
           release_notes_file="release-notes.md"
 
@@ -158,10 +162,10 @@ jobs:
             exit 0
           fi
 
-          awk -v version="$version" '
+          awk -v version="$version" -v normalized_version="$normalized_version" '
             BEGIN { capture = 0 }
-            $0 ~ "^## \\[" version "\\]" { capture = 1 }
-            capture && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" { exit }
+            $0 ~ "^## \\[" version "\\]" || $0 ~ "^## \\[" normalized_version "\\]" { capture = 1 }
+            capture && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" && $0 !~ "^## \\[" normalized_version "\\]" { exit }
             capture { print }
           ' "$changelog_file" > "$release_notes_file"
 
