@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import yaml from 'js-yaml'
 import type { OpenApiSpec, TagGroup, OperationItem, HttpMethod } from '@/types/openapi'
 import type { MergedConfig } from '@/types'
+import { buildAuthHeaders, buildLegacyAuthHeader } from '@/utils/auth'
 
 const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace']
 
@@ -15,50 +16,32 @@ export function useOpenApi(cfg: MergedConfig) {
     error.value = null
     spec.value = null
     try {
-      const headers: Record<string, string> = {}
-      // inject auth headers if configured
+      // ── Build auth headers (unified via utils/auth) ────────────────────
+      let headers: Record<string, string> = {}
       if (cfg.authEnabled) {
-        const authHeaders = cfg.authHeaders
-        // 优先使用新版本多 header 配置，回退到旧版本单 header
-        if (authHeaders && authHeaders.length > 0) {
-          authHeaders.forEach(h => {
-            if (h.name) {
-              let val = (h.value || '').trim()
-              if (val) {
-                const prefix = (h.defaultPrefix || '').trim()
-                if (prefix && !val.startsWith(prefix + ' ')) {
-                  val = `${prefix} ${val}`
-                }
-                headers[h.name.trim()] = val
-              }
-            }
-          })
+        if (cfg.authHeaders && cfg.authHeaders.length > 0) {
+          // 新版多 Header 配置
+          headers = buildAuthHeaders(cfg.authHeaders)
         } else if (cfg.authHeaderName) {
-          // 旧版本单 header 配置兼容
-          const name = (cfg.authHeaderName || 'Authorization').trim()
-          let val = (cfg.authValue || '').trim()
-          if (name && val) {
-            const prefix = (cfg.authDefaultPrefix || '').trim()
-            if (prefix && !val.startsWith(prefix + ' ')) val = `${prefix} ${val}`
-            headers[name] = val
-          }
+          // 旧版单 Header 配置兼容
+          headers = buildLegacyAuthHeader(cfg.authHeaderName, cfg.authValue, cfg.authDefaultPrefix)
         }
       }
+
       const res = await fetch(url, { headers })
       if (!res.ok) throw new Error(`HTTP ${res.status} — 无法加载文档 spec`)
+
       const contentType = res.headers.get('content-type') || ''
       const responseText = await res.text()
       let data: OpenApiSpec
 
       if (contentType.includes('yaml') || url.endsWith('.yaml') || url.endsWith('.yml')) {
-        // 支持 YAML 格式解析
         try {
           data = yaml.load(responseText) as OpenApiSpec
         } catch (e) {
           throw new Error(`YAML 格式解析失败: ${e instanceof Error ? e.message : String(e)}`)
         }
       } else {
-        // JSON 格式
         try {
           data = JSON.parse(responseText) as OpenApiSpec
         } catch (e) {

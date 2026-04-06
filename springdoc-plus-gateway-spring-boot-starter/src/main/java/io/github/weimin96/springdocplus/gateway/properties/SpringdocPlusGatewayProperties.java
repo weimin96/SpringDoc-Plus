@@ -1,14 +1,15 @@
 package io.github.weimin96.springdocplus.gateway.properties;
 
-
 import io.github.weimin96.springdocplus.core.enums.GatewayStrategy;
 import io.github.weimin96.springdocplus.core.enums.GroupOrderStrategy;
 import io.github.weimin96.springdocplus.core.enums.OpenApiVersion;
 import io.github.weimin96.springdocplus.core.model.GatewayRoute;
 import io.github.weimin96.springdocplus.core.model.SpringdocPlusGatewayAuth;
 import io.github.weimin96.springdocplus.core.model.SpringdocPlusGatewayHttpBasic;
+import jakarta.validation.Valid;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.*;
 
@@ -16,10 +17,14 @@ import java.util.*;
  * 网关配置属性类。
  * <p>
  * 用于配置网关聚合文档的各项参数，包括聚合策略、路由配置、认证信息等。
+ * <p>
+ * 添加了 {@code @Validated} 和嵌套对象的 {@code @Valid}，启动时即可捕获
+ * 错误配置，无需等到运行时才触发异常。
  *
  * @author pwm
  */
 @Data
+@Validated
 @ConfigurationProperties(prefix = SpringdocPlusGatewayProperties.PREFIX)
 public class SpringdocPlusGatewayProperties {
 
@@ -51,16 +56,19 @@ public class SpringdocPlusGatewayProperties {
     /**
      * Basic 保护（对齐 Knife4j Gateway basic）
      */
+    @Valid
     private SpringdocPlusGatewayHttpBasic basic = new SpringdocPlusGatewayHttpBasic();
 
     /**
      * UI 侧鉴权（Bearer/Basic/自定义 Header 等）
      */
+    @Valid
     private SpringdocPlusGatewayAuth auth = new SpringdocPlusGatewayAuth();
 
     /**
      * 手动路由配置（manual 模式主数据源；discover 模式用于补充/覆写）
      */
+    @Valid
     private List<GatewayRoute> routes = new ArrayList<>();
 
     private final Discover discover = new Discover();

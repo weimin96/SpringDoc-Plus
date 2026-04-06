@@ -1,6 +1,7 @@
 import { ref, type Ref, watch } from 'vue'
 import type { OperationItem, SchemaObject } from '@/types/openapi'
 import { generateJsonSchemaExample } from '@/utils/schema'
+import { readStorage, writeStorage, removeStorage } from '@/utils/storage'
 
 export interface RequestParam {
   name: string
@@ -38,8 +39,11 @@ interface OperationSnapshot {
   contentType: string
 }
 
+/** 在内存缓存中存的同一份 snapshot，避免频繁 JSON 序列化 */
 const MEMORY_CACHE = new Map<string, OperationSnapshot>()
-const STORAGE_PREFIX = 'springdoc-plus:simulate:request:'
+
+/** localStorage key 前缀 — 供 gcStorage 清理 */
+export const SIMULATE_REQUEST_STORAGE_PREFIX = 'springdoc-plus:simulate:request:'
 
 function getRequestBodyContent(item: OperationItem) {
   return item.operation.requestBody?.content ?? {}
@@ -47,40 +51,13 @@ function getRequestBodyContent(item: OperationItem) {
 
 function normalizeContentType(mediaType: string, schema: SchemaObject | null): string {
   if (mediaType !== '*/*') return mediaType
-
   if (schema?.type === 'string') return 'text/plain'
   if (schema?.format === 'binary') return 'application/octet-stream'
   return 'application/json'
 }
 
 function storageKey(key: string): string {
-  return `${STORAGE_PREFIX}${key}`
-}
-
-function readStorage(key: string): OperationSnapshot | null {
-  try {
-    const raw = window.localStorage.getItem(storageKey(key))
-    if (!raw) return null
-    return JSON.parse(raw) as OperationSnapshot
-  } catch {
-    return null
-  }
-}
-
-function writeStorage(key: string, snapshot: OperationSnapshot) {
-  try {
-    window.localStorage.setItem(storageKey(key), JSON.stringify(snapshot))
-  } catch {
-    // Ignore quota and privacy mode failures.
-  }
-}
-
-function removeStorage(key: string) {
-  try {
-    window.localStorage.removeItem(storageKey(key))
-  } catch {
-    // Ignore storage failures.
-  }
+  return `${SIMULATE_REQUEST_STORAGE_PREFIX}${key}`
 }
 
 export function getRequestBodyOptions(item: OperationItem): RequestBodyOption[] {
@@ -93,18 +70,13 @@ export function getRequestBodyOptions(item: OperationItem): RequestBodyOption[] 
     if (seen.has(effectiveType)) return []
     seen.add(effectiveType)
 
-    return [{
-      sourceType,
-      effectiveType,
-      schema,
-      example: media?.example,
-    }]
+    return [{ sourceType, effectiveType, schema, example: media?.example }]
   })
 }
 
 export function resolveRequestBodyOption(
   item: OperationItem,
-  contentType: string
+  contentType: string,
 ): RequestBodyOption | null {
   return getRequestBodyOptions(item).find(option => option.effectiveType === contentType) ?? null
 }
@@ -112,7 +84,6 @@ export function resolveRequestBodyOption(
 function getPreferredContentType(item: OperationItem): string {
   const options = getRequestBodyOptions(item)
   if (!options.length) return 'application/json'
-
   const jsonOption = options.find(option => option.effectiveType.includes('json'))
   return jsonOption?.effectiveType ?? options[0].effectiveType
 }
@@ -124,42 +95,26 @@ function stringifyExample(example: unknown): string {
 function buildInitialRequestBody(
   item: OperationItem,
   mediaType: string,
-  schemas?: Record<string, SchemaObject>
+  schemas?: Record<string, SchemaObject>,
 ): string {
   const option = resolveRequestBodyOption(item, mediaType)
   const schema = option?.schema ?? null
 
-  if (option?.example !== undefined) {
-    return stringifyExample(option.example)
-  }
-
-  if (mediaType.includes('json')) {
-    return generateJsonSchemaExample(schema, schemas)
-  }
-
-  if (schema?.example !== undefined) {
-    return stringifyExample(schema.example)
-  }
-
-  if (schema?.default !== undefined) {
-    return stringifyExample(schema.default)
-  }
-
-  if (mediaType === 'text/plain' || mediaType.startsWith('text/')) {
-    return ''
-  }
-
+  if (option?.example !== undefined) return stringifyExample(option.example)
+  if (mediaType.includes('json')) return generateJsonSchemaExample(schema, schemas)
+  if (schema?.example !== undefined) return stringifyExample(schema.example)
+  if (schema?.default !== undefined) return stringifyExample(schema.default)
+  if (mediaType === 'text/plain' || mediaType.startsWith('text/')) return ''
   if (mediaType === 'application/xml' || mediaType === 'text/xml') {
     return '<?xml version="1.0" encoding="UTF-8"?>\n<root>\n</root>'
   }
-
   return ''
 }
 
 export function useSimulateRequest(
   itemRef: Ref<OperationItem>,
   contextPathRef?: Ref<string | undefined>,
-  schemasRef?: Ref<Record<string, SchemaObject> | undefined>
+  schemasRef?: Ref<Record<string, SchemaObject> | undefined>,
 ) {
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -176,11 +131,12 @@ export function useSimulateRequest(
 
   function buildDefaultParams(item: OperationItem): RequestParam[] {
     return (item.operation.parameters ?? []).map((param) => {
-      const example = param.example !== undefined
-        ? String(param.example)
-        : param.schema?.example !== undefined
-          ? String(param.schema.example)
-          : ''
+      const example =
+        param.example !== undefined
+          ? String(param.example)
+          : param.schema?.example !== undefined
+            ? String(param.schema.example)
+            : ''
 
       return {
         name: param.name,
@@ -196,30 +152,31 @@ export function useSimulateRequest(
 
   function saveSnapshot(key: string) {
     const snapshot: OperationSnapshot = {
-      params: params.value.map(param => ({ ...param })),
+      params: params.value.map(p => ({ ...p })),
       requestBody: requestBody.value,
       contentType: contentType.value,
     }
-
     MEMORY_CACHE.set(key, snapshot)
-    writeStorage(key, snapshot)
+    writeStorage(storageKey(key), snapshot)
   }
 
   function restoreOrInit(item: OperationItem) {
     const key = itemKey(item)
-    const cached = MEMORY_CACHE.get(key) ?? readStorage(key)
+    const cached = MEMORY_CACHE.get(key) ?? readStorage<OperationSnapshot>(storageKey(key))
     const supportedTypes = getRequestBodyOptions(item).map(option => option.effectiveType)
 
     availableContentTypes.value = supportedTypes
 
     if (cached) {
-      params.value = cached.params.map(param => ({ ...param }))
+      params.value = cached.params.map(p => ({ ...p }))
       contentType.value = supportedTypes.includes(cached.contentType)
         ? cached.contentType
-        : (supportedTypes.length ? getPreferredContentType(item) : 'application/json')
+        : supportedTypes.length
+          ? getPreferredContentType(item)
+          : 'application/json'
       requestBody.value = cached.requestBody
       MEMORY_CACHE.set(key, {
-        params: params.value.map(param => ({ ...param })),
+        params: params.value.map(p => ({ ...p })),
         requestBody: requestBody.value,
         contentType: contentType.value,
       })
@@ -244,13 +201,13 @@ export function useSimulateRequest(
       path = `${normalizedPath.replace(/\/$/, '')}${path}`
     }
 
-    for (const param of params.value.filter(param => param.in === 'path')) {
+    for (const param of params.value.filter(p => p.in === 'path')) {
       path = path.replace(`{${param.name}}`, encodeURIComponent(param.value))
     }
 
     const query = params.value
-      .filter(param => param.in === 'query' && param.value)
-      .map(param => `${encodeURIComponent(param.name)}=${encodeURIComponent(param.value)}`)
+      .filter(p => p.in === 'query' && p.value)
+      .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
       .join('&')
 
     if (query) {
@@ -263,7 +220,7 @@ export function useSimulateRequest(
   function buildHeaders(customHeaders?: CustomHeader[], formData?: FormData): Record<string, string> {
     const headers: Record<string, string> = {}
 
-    for (const param of params.value.filter(param => param.in === 'header' && param.value)) {
+    for (const param of params.value.filter(p => p.in === 'header' && p.value)) {
       headers[param.name] = param.value
     }
 
@@ -274,18 +231,20 @@ export function useSimulateRequest(
     }
 
     if (!formData && availableContentTypes.value.length && contentType.value) {
-      headers['Content-Type'] = contentType.value === 'text/plain'
-        ? 'text/plain;charset=UTF-8'
-        : contentType.value
+      headers['Content-Type'] =
+        contentType.value === 'text/plain'
+          ? 'text/plain;charset=UTF-8'
+          : contentType.value
     }
 
     return headers
   }
 
   function setContentType(nextContentType: string) {
-    if (!availableContentTypes.value.includes(nextContentType) || nextContentType === contentType.value) {
-      return
-    }
+    if (
+      !availableContentTypes.value.includes(nextContentType) ||
+      nextContentType === contentType.value
+    ) return
 
     contentType.value = nextContentType
     requestBody.value = buildInitialRequestBody(itemRef.value, nextContentType, schemasRef?.value)
@@ -344,14 +303,13 @@ export function useSimulateRequest(
       requestBody.value = ''
       return
     }
-
     requestBody.value = buildInitialRequestBody(itemRef.value, contentType.value, schemasRef?.value)
   }
 
   function reset() {
     const key = itemKey(itemRef.value)
     MEMORY_CACHE.delete(key)
-    removeStorage(key)
+    removeStorage(storageKey(key))
     result.value = null
     error.value = null
     restoreOrInit(itemRef.value)
@@ -364,14 +322,10 @@ export function useSimulateRequest(
       error.value = null
       restoreOrInit(nextItem)
     },
-    { deep: false, immediate: true }
+    { deep: false, immediate: true },
   )
 
-  watch(
-    [params, requestBody, contentType],
-    () => saveSnapshot(itemKey(itemRef.value)),
-    { deep: true }
-  )
+  watch([params, requestBody, contentType], () => saveSnapshot(itemKey(itemRef.value)), { deep: true })
 
   return {
     loading,

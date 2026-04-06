@@ -27,6 +27,10 @@ export interface ServerObject {
 export interface TagObject {
   name: string
   description?: string
+  /**
+   * SpringDoc-Plus 扩展字段：标签排序值。
+   * 对应 Java 侧 @Tag(extensions = @Extension(properties = @ExtensionProperty(name="x-order", value="1")))
+   */
   'x-order'?: number
 }
 
@@ -50,6 +54,10 @@ export interface OperationObject {
   requestBody?: RequestBodyObject
   responses?: Record<string, ResponseObject>
   security?: SecurityRequirementObject[]
+  /**
+   * SpringDoc-Plus 扩展字段：接口排序值。
+   * 对应 Java 侧 @Operation(extensions = @Extension(properties = @ExtensionProperty(name="x-order", value="1")))
+   */
   'x-order'?: number
 }
 
