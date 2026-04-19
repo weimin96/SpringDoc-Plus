@@ -1,0 +1,113 @@
+<svg width="1600" height="520" viewBox="0 0 1600 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">SpringDoc-Plus 项目主图</title>
+  <desc id="desc">用于 GitHub README 的宽幅项目介绍图，展示 Spring Boot 4、springdoc 3、网关聚合与文档 UI 能力。</desc>
+
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0" y1="0" x2="1600" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#061412"/>
+      <stop offset="0.46" stop-color="#0B332D"/>
+      <stop offset="1" stop-color="#D6F3B7"/>
+    </linearGradient>
+    <linearGradient id="panelGradient" x1="960" y1="76" x2="1440" y2="444" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7FFF0" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#DFF7EF" stop-opacity="0.88"/>
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="222" y1="286" x2="721" y2="119" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#83E05B"/>
+      <stop offset="0.55" stop-color="#2BC7A2"/>
+      <stop offset="1" stop-color="#3A8BFF"/>
+    </linearGradient>
+    <linearGradient id="lineGradient" x1="664" y1="260" x2="1058" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8CEB60"/>
+      <stop offset="0.55" stop-color="#3BD1B2"/>
+      <stop offset="1" stop-color="#D7F3B8"/>
+    </linearGradient>
+    <filter id="softShadow" x="-40" y="-40" width="1680" height="600" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#02100E" flood-opacity="0.28"/>
+    </filter>
+    <filter id="glow" x="-80" y="-80" width="1760" height="680" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="34" result="blur"/>
+      <feBlend in="SourceGraphic" in2="blur" mode="screen"/>
+    </filter>
+    <pattern id="gridPattern" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="1"/>
+    </pattern>
+    <style>
+      .title-text { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-weight: 800; letter-spacing: -1px; }
+      .body-text { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-weight: 500; }
+      .mono-text { font-family: "Cascadia Mono", "JetBrains Mono", monospace; font-weight: 650; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="520" rx="40" fill="url(#backgroundGradient)"/>
+  <rect width="1600" height="520" rx="40" fill="url(#gridPattern)"/>
+  <circle cx="248" cy="90" r="210" fill="#79DB62" opacity="0.12" filter="url(#glow)"/>
+  <circle cx="1280" cy="90" r="238" fill="#F4FFCC" opacity="0.24" filter="url(#glow)"/>
+  <path d="M0 410 C220 330 315 540 528 448 C762 348 812 432 1002 390 C1212 344 1378 420 1600 310 V520 H0 V410Z" fill="#042A25" opacity="0.34"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="80" y="72" width="625" height="376" rx="34" fill="#0B211F" fill-opacity="0.54" stroke="#C7F9C5" stroke-opacity="0.18"/>
+    <rect x="112" y="108" width="168" height="38" rx="19" fill="#D6F3B7" fill-opacity="0.14" stroke="#D6F3B7" stroke-opacity="0.26"/>
+    <text x="132" y="134" class="body-text" font-size="18" fill="#D9FFE1">Spring Boot 4</text>
+
+    <text x="112" y="216" class="title-text" font-size="74" fill="#F4FFE9">SpringDoc-Plus</text>
+    <text x="116" y="270" class="body-text" font-size="30" fill="#DFFFE1">面向网关聚合的 OpenAPI 文档中心</text>
+    <text x="116" y="315" class="body-text" font-size="22" fill="#BEEED0">支持多服务分组、接口调试与文档导出</text>
+
+    <g transform="translate(116 360)">
+      <rect width="122" height="38" rx="19" fill="#84E35E" fill-opacity="0.18" stroke="#A4F27F" stroke-opacity="0.42"/>
+      <text x="24" y="25" class="mono-text" font-size="15" fill="#E9FFDB">Java 21</text>
+    </g>
+    <g transform="translate(252 360)">
+      <rect width="156" height="38" rx="19" fill="#2ECFAF" fill-opacity="0.18" stroke="#77F3DD" stroke-opacity="0.42"/>
+      <text x="22" y="25" class="mono-text" font-size="15" fill="#D8FFF6">OpenAPI 3</text>
+    </g>
+    <g transform="translate(424 360)">
+      <rect width="154" height="38" rx="19" fill="#5FA8FF" fill-opacity="0.18" stroke="#9FC7FF" stroke-opacity="0.42"/>
+      <text x="24" y="25" class="mono-text" font-size="15" fill="#E6F1FF">Gateway</text>
+    </g>
+  </g>
+
+  <g opacity="0.95">
+    <path d="M646 260 C712 260 752 184 820 184 C888 184 910 252 966 252" stroke="url(#lineGradient)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M646 260 C712 260 752 336 820 336 C888 336 910 268 966 268" stroke="url(#lineGradient)" stroke-width="6" stroke-linecap="round" opacity="0.72"/>
+    <circle cx="646" cy="260" r="24" fill="#102D28" stroke="#8FED69" stroke-width="5"/>
+    <circle cx="820" cy="184" r="20" fill="#102D28" stroke="#3BD1B2" stroke-width="5"/>
+    <circle cx="820" cy="336" r="20" fill="#102D28" stroke="#3BD1B2" stroke-width="5"/>
+    <circle cx="966" cy="260" r="26" fill="#102D28" stroke="#E7FFC6" stroke-width="5"/>
+    <text x="646" y="315" class="body-text" font-size="15" fill="#D8FFE4" text-anchor="middle">发现</text>
+    <text x="820" y="150" class="body-text" font-size="15" fill="#D8FFE4" text-anchor="middle">服务分组</text>
+    <text x="820" y="390" class="body-text" font-size="15" fill="#D8FFE4" text-anchor="middle">接口分组</text>
+    <text x="966" y="315" class="body-text" font-size="15" fill="#F4FFE9" text-anchor="middle">聚合</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="1018" y="74" width="502" height="372" rx="30" fill="url(#panelGradient)" stroke="#FFFFFF" stroke-opacity="0.48"/>
+    <rect x="1050" y="106" width="438" height="44" rx="22" fill="#0E2F2A" fill-opacity="0.9"/>
+    <circle cx="1078" cy="128" r="7" fill="#84E35E"/>
+    <circle cx="1102" cy="128" r="7" fill="#2ECFAF"/>
+    <circle cx="1126" cy="128" r="7" fill="#F5C86A"/>
+    <text x="1160" y="134" class="mono-text" font-size="15" fill="#DDFBE0">/gateway/openapi/groups</text>
+
+    <rect x="1050" y="174" width="126" height="224" rx="22" fill="#0F322D"/>
+    <rect x="1072" y="198" width="74" height="12" rx="6" fill="#8FEA67"/>
+    <rect x="1072" y="230" width="82" height="10" rx="5" fill="#CFF8DA" opacity="0.56"/>
+    <rect x="1072" y="258" width="62" height="10" rx="5" fill="#CFF8DA" opacity="0.38"/>
+    <rect x="1072" y="286" width="84" height="10" rx="5" fill="#CFF8DA" opacity="0.5"/>
+    <rect x="1072" y="338" width="52" height="22" rx="11" fill="#2ECFAF" opacity="0.85"/>
+
+    <rect x="1206" y="174" width="250" height="64" rx="20" fill="#FFFFFF" fill-opacity="0.72"/>
+    <rect x="1226" y="195" width="54" height="22" rx="11" fill="#84E35E"/>
+    <text x="1296" y="212" class="mono-text" font-size="17" fill="#17342F">GET /default</text>
+
+    <rect x="1206" y="260" width="250" height="64" rx="20" fill="#FFFFFF" fill-opacity="0.72"/>
+    <rect x="1226" y="281" width="54" height="22" rx="11" fill="#5FA8FF"/>
+    <text x="1296" y="298" class="mono-text" font-size="17" fill="#17342F">GET /admin</text>
+
+    <rect x="1206" y="346" width="250" height="52" rx="18" fill="#E7FBD8"/>
+    <text x="1228" y="379" class="body-text" font-size="20" fill="#183A33">调试、导出、排序</text>
+  </g>
+
+  <path d="M84 454 H1516" stroke="#FFFFFF" stroke-opacity="0.12"/>
+  <text x="116" y="486" class="body-text" font-size="16" fill="#D6F3B7" opacity="0.78">SpringDoc-Plus 为 Spring Boot 4.x 与 springdoc 3.x 项目提供轻量文档入口</text>
+</svg>

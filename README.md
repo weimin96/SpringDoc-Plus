@@ -1,5 +1,9 @@
 # SpringDoc-Plus
 
+<p align="center">
+  <img src="./screenshot/hero.svg" alt="SpringDoc-Plus 项目主图" width="100%" />
+</p>
+
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.weimin96/springdoc-plus.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.weimin96/springdoc-plus)
 [![License](https://img.shields.io/github/license/weimin96/springdoc-plus)](https://github.com/weimin96/springdoc-plus/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/weimin96/SpringDoc-Plus/badge.svg?branch=main)](https://coveralls.io/github/weimin96/SpringDoc-Plus?branch=main)
