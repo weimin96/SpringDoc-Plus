@@ -1,7 +1,7 @@
 name: Build and Test
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  COVERALLS_REPORTER_VERSION: v0.6.17
 
 on:
   push:
@@ -9,11 +9,15 @@ on:
       - main
     paths-ignore:
       - '**.md'
+      - 'screenshot/**'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches:
       - main
     paths-ignore:
       - '**.md'
+      - 'screenshot/**'
+      - '.github/ISSUE_TEMPLATE/**'
 
 permissions:
   contents: read
@@ -24,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -36,20 +40,101 @@ jobs:
       - name: Build, test and generate JaCoCo reports
         run: mvn -q verify jacoco:report -DskipFrontendBuild=true
 
+      - name: Install Coveralls reporter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          install_dir="$HOME/bin"
+          reporter_archive="coveralls-linux-x86_64.tar.gz"
+          checksum_file="coveralls-checksums.txt"
+          release_base_url="https://github.com/coverallsapp/coverage-reporter/releases/download/${COVERALLS_REPORTER_VERSION}"
+
+          download_release_asset() {
+            local asset_url="$1"
+            local target_path="$2"
+
+            curl -fsSL --retry 3 --retry-all-errors --retry-delay 2 -o "$target_path" "$asset_url"
+          }
+
+          ensure_plain_text_checksum() {
+            local checksum_path="$1"
+
+            if grep -qiE '^<!DOCTYPE html>|^<html' "$checksum_path"; then
+              echo "Coveralls 校验文件下载结果异常，返回了 HTML 页面。"
+              exit 1
+            fi
+          }
+
+          mkdir -p "$install_dir"
+          cd "$install_dir"
+
+          download_release_asset "${release_base_url}/${reporter_archive}" "$reporter_archive"
+          download_release_asset "${release_base_url}/${checksum_file}" "$checksum_file"
+          ensure_plain_text_checksum "$checksum_file"
+
+          expected_checksum="$(awk '$2 == "'"$reporter_archive"'" { print $1 }' "$checksum_file")"
+          if [ -z "$expected_checksum" ]; then
+            echo "未能从 Coveralls 校验文件中解析 ${reporter_archive} 的摘要。"
+            exit 1
+          fi
+
+          actual_checksum="$(sha256sum "$reporter_archive" | awk '{ print $1 }')"
+          if [ "$expected_checksum" != "$actual_checksum" ]; then
+            echo "Coveralls 二进制校验失败。"
+            echo "期望摘要: $expected_checksum"
+            echo "实际摘要: $actual_checksum"
+            exit 1
+          fi
+
+          tar -xzf "$reporter_archive"
+          rm -f "$reporter_archive" "$checksum_file"
+
+          if [ ! -x "$install_dir/coveralls" ]; then
+            echo "未找到 Coveralls 可执行文件。"
+            exit 1
+          fi
+
+          echo "$install_dir" >> "$GITHUB_PATH"
+
       - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          format: jacoco
-          base-path: .
-          fail-on-error: true
-          files: >-
-            springdoc-plus-core/target/site/jacoco/jacoco.xml
-            springdoc-plus-gateway-spring-boot-starter/target/site/jacoco/jacoco.xml
-            springdoc-plus-openapi3-spring-boot-starter/target/site/jacoco/jacoco.xml
-            springdoc-plus-samples/gateway-sample/target/site/jacoco/jacoco.xml
-            springdoc-plus-samples/user-service-sample/target/site/jacoco/jacoco.xml
-            springdoc-plus-samples/order-service-sample/target/site/jacoco/jacoco.xml
+        shell: bash
+        env:
+          COVERALLS_ENDPOINT: https://coveralls.io
+          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_SOURCE_HEADER: github-action
+        run: |
+          set -euo pipefail
+
+          coverage_files=(
+            "springdoc-plus-core/target/site/jacoco/jacoco.xml"
+            "springdoc-plus-gateway-spring-boot-starter/target/site/jacoco/jacoco.xml"
+            "springdoc-plus-openapi3-spring-boot-starter/target/site/jacoco/jacoco.xml"
+            "springdoc-plus-samples/gateway-sample/target/site/jacoco/jacoco.xml"
+            "springdoc-plus-samples/user-service-sample/target/site/jacoco/jacoco.xml"
+            "springdoc-plus-samples/order-service-sample/target/site/jacoco/jacoco.xml"
+          )
+
+          for coverage_file in "${coverage_files[@]}"; do
+            if [ ! -f "$coverage_file" ]; then
+              echo "未找到覆盖率报告: $coverage_file"
+              exit 1
+            fi
+          done
+
+          upload_attempt=1
+          max_upload_attempts=3
+
+          until coveralls report --format jacoco --base-path . "${coverage_files[@]}"; do
+            if [ "$upload_attempt" -ge "$max_upload_attempts" ]; then
+              echo "Coveralls 覆盖率上报失败，已达到最大重试次数。"
+              exit 1
+            fi
+
+            echo "Coveralls 覆盖率上报失败，5 秒后重试。"
+            upload_attempt=$((upload_attempt + 1))
+            sleep 5
+          done
 
   build-frontend:
     runs-on: ubuntu-latest
