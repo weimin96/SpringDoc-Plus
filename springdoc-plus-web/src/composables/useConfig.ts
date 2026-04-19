@@ -21,7 +21,24 @@ export function mergeConfig(server: ServerUiConfig, local: LocalUiConfig): Merge
 }
 
 export function useConfig(serverCfg: ServerUiConfig) {
+  let currentServerConfig = { ...serverCfg }
   const state = reactive<MergedConfig>(mergeConfig(serverCfg, getLocalConfig()))
+
+  function replaceState(nextState: MergedConfig) {
+    for (const key of Object.keys(state) as Array<keyof MergedConfig>) {
+      delete state[key]
+    }
+    Object.assign(state, nextState)
+  }
+
+  function syncState(local: LocalUiConfig = getLocalConfig()) {
+    replaceState(mergeConfig(currentServerConfig, local))
+  }
+
+  function updateServer(nextServerConfig: ServerUiConfig) {
+    currentServerConfig = { ...nextServerConfig }
+    syncState()
+  }
 
   function applyLocal(local: LocalUiConfig) {
     // 持久化时需要处理 authHeaders
@@ -39,13 +56,13 @@ export function useConfig(serverCfg: ServerUiConfig) {
       }
       setLocalConfig(localToSave)
     }
-    Object.assign(state, mergeConfig(serverCfg, getLocalConfig()))
+    syncState()
   }
 
   function clear() {
     clearLocalConfig()
-    Object.assign(state, mergeConfig(serverCfg, {}))
+    syncState({})
   }
 
-  return { state, applyLocal, clear }
+  return { state, applyLocal, clear, updateServer }
 }

@@ -145,6 +145,9 @@ class GatewayControllersTest {
         ResponseEntity<Resource> png = controller.uiRootAsset("logo.png").block();
         assertThat(png.getHeaders().getContentType().toString()).contains("image/png");
 
+        ResponseEntity<Resource> docx = controller.uiDocAsset("模板.docx").block();
+        assertThat(docx.getHeaders().getContentType().toString()).contains("wordprocessingml.document");
+
         ResponseEntity<Resource> ico = controller.uiRootAsset("favicon.ico").block();
         assertThat(ico.getHeaders().getContentType().toString()).contains("image/x-icon");
 
@@ -153,6 +156,9 @@ class GatewayControllersTest {
 
         ResponseEntity<Resource> invalidRoot = controller.uiRootAsset("..\\secret").block();
         assertThat(invalidRoot.getStatusCode().value()).isEqualTo(400);
+
+        ResponseEntity<Resource> invalidDoc = controller.uiDocAsset("../模板.docx").block();
+        assertThat(invalidDoc.getStatusCode().value()).isEqualTo(400);
     }
 
     private static <T> ObjectProvider<T> objectProvider(T value) {

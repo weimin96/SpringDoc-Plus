@@ -9,7 +9,7 @@
 | 特性 | 说明 |
 |------|------|
 | 零外部依赖渲染 | 自实现 OpenAPI 3.x 解析、Tag/Operation 分组、Schema 展示 |
-| 双模式自动检测 | 网关模式 / 子服务模式，支持 `?mode=` 强制指定 |
+| 统一网关契约 | 前端统一读取 `/springdoc-plus-gateway/openapi/groups` 和 `/springdoc-plus-gateway/ui-config`，单服务 starter 也提供同名接口 |
 | Tailwind v4 | 组件样式全部用 Tailwind utility class，`@theme` 注册 design token |
 | 代码规范 | Prettier + Stylelint，统一格式化 |
 | 接口过滤 | 顶部搜索栏，实时过滤路径/描述/operationId |
@@ -29,7 +29,7 @@ src/
 │   ├── index.ts                       # 通用类型（Mode, ApiGroup, Config…）
 │   └── openapi.ts                     # OpenAPI 3.x spec 类型定义
 ├── composables/
-│   ├── useApi.ts                      # 模式检测 + 数据获取
+│   ├── useApi.ts                      # 文档组和服务端 UI 配置获取
 │   ├── useConfig.ts                   # localStorage 配置管理
 │   ├── useOpenApi.ts                  # OpenAPI spec 解析 + tag/op 分组
 │   └── useSwagger.ts                  # 预留 stub
@@ -56,18 +56,19 @@ npm run lint:style # Stylelint 检查
 
 修改 `vite.config.ts` 中的 `BACKEND` 常量可切换后端地址（默认 `http://localhost:8080`）。
 
-## 双模式说明
+## 数据接口说明
 
-| 模式 | 触发 | spec 来源 |
-|------|------|----------|
-| 网关 | `/springdoc-plus-gateway/openapi/groups` 返回 200 | groups 接口中每个 url |
-| 子服务 | 网关接口不可达，或 `?mode=service` | 自动探测 `/v3/api-docs` → `/v2/api-docs`，或 `?specUrl=` |
+| 接口 | 说明 |
+|------|------|
+| `/springdoc-plus-gateway/openapi/groups` | 返回文档组列表，单服务和网关 starter 均提供该接口 |
+| `/springdoc-plus-gateway/ui-config` | 返回排序策略、鉴权默认值等 UI 配置，接口不可用时前端使用本地默认值 |
 
 ## 构建 & 部署
 
 ```bash
 npm run build
 # 将 dist/ 复制到 src/main/resources/META-INF/resources/springdoc-plus-ui/
+npm run copy
 ```
 
 Spring Boot controller（WebFlux）：

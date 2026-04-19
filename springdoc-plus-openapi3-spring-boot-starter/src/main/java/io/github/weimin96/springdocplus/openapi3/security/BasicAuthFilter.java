@@ -21,7 +21,8 @@ import java.util.Base64;
  * 单服务模式下的可选 HTTP Basic 保护（Servlet 版）。
  *
  * <p>对齐 Gateway 模块的 {@code BasicAuthWebFilter}（WebFlux 版），
- * 保护 {@code /doc.html} 和 {@code /springdoc-plus-ui/**} 路径。
+ * 保护 {@code /doc.html}、{@code /springdoc-plus-ui/**} 和
+ * {@code /springdoc-plus-gateway/**} 路径。
  *
  * <p>启用方式：在 {@code application.yml} 中配置：
  * <pre>{@code
@@ -107,7 +108,8 @@ public class BasicAuthFilter extends OncePerRequestFilter {
 
     private boolean needProtect(String path) {
         return "/doc.html".equals(path)
-                || path.startsWith("/springdoc-plus-ui");
+                || path.startsWith("/springdoc-plus-ui")
+                || path.startsWith("/springdoc-plus-gateway");
     }
 
     private void sendUnauthorized(HttpServletResponse response) throws IOException {

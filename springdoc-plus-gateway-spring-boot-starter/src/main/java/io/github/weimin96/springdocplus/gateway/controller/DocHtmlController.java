@@ -52,18 +52,18 @@ public class DocHtmlController {
      */
     @GetMapping("/springdoc-plus-ui/assets/{filename}")
     public Mono<ResponseEntity<Resource>> uiAsset(@PathVariable String filename) {
-        // 路径遍历防护：白名单校验
-        if (!isValidFilename(filename)) {
-            return Mono.just(ResponseEntity.badRequest().build());
-        }
-        return Mono.fromCallable(() -> {
-                    Resource resource = resourceLoader.getResource("classpath:/META-INF/resources/springdoc-plus-ui/assets/" + filename);
-                    String contentType = getContentType(filename);
-                    return ResponseEntity.ok()
-                            .contentType(MediaType.parseMediaType(contentType))
-                            .header(HttpHeaders.CACHE_CONTROL, "no-cache")
-                            .body(resource);
-                });
+        return loadUiResource("classpath:/META-INF/resources/springdoc-plus-ui/assets/", filename);
+    }
+
+    /**
+     * 提供 /springdoc-plus-ui/docs/** 文档资源（如 DOCX 导出模板）
+     *
+     * @param filename 资源文件名
+     * @return 资源响应
+     */
+    @GetMapping("/springdoc-plus-ui/docs/{filename}")
+    public Mono<ResponseEntity<Resource>> uiDocAsset(@PathVariable String filename) {
+        return loadUiResource("classpath:/META-INF/resources/springdoc-plus-ui/docs/", filename);
     }
 
     /**
@@ -74,12 +74,29 @@ public class DocHtmlController {
      */
     @GetMapping("/springdoc-plus-ui/{filename}")
     public Mono<ResponseEntity<Resource>> uiRootAsset(@PathVariable String filename) {
+        return loadUiResource("classpath:/META-INF/resources/springdoc-plus-ui/", filename);
+    }
+
+    /**
+     * 统一加载受控 UI 资源目录下的单文件。
+     * <p>
+     * 只接受不含路径分隔符的文件名，原因是这些资源由前端构建产物提供，
+     * 后端只需要开放固定目录下的静态文件，不应允许调用方拼接任意 classpath 路径。
+     *
+     * @param basePath 受控资源目录
+     * @param filename 资源文件名
+     * @return 资源响应
+     */
+    private Mono<ResponseEntity<Resource>> loadUiResource(String basePath, String filename) {
         // 路径遍历防护：白名单校验
         if (!isValidFilename(filename)) {
             return Mono.just(ResponseEntity.badRequest().build());
         }
         return Mono.fromCallable(() -> {
-                    Resource resource = resourceLoader.getResource("classpath:/META-INF/resources/springdoc-plus-ui/" + filename);
+                    Resource resource = resourceLoader.getResource(basePath + filename);
+                    if (!resource.exists()) {
+                        return ResponseEntity.notFound().build();
+                    }
                     String contentType = getContentType(filename);
                     return ResponseEntity.ok()
                             .contentType(MediaType.parseMediaType(contentType))
@@ -115,6 +132,8 @@ public class DocHtmlController {
             return "image/png";
         } else if (filename.endsWith(".ico")) {
             return "image/x-icon";
+        } else if (filename.endsWith(".docx")) {
+            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         }
         return "application/octet-stream";
     }

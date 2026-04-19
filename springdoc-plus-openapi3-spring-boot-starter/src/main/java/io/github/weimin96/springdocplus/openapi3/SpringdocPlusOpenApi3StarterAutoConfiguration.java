@@ -75,7 +75,7 @@ public class SpringdocPlusOpenApi3StarterAutoConfiguration {
             SpringdocPlusOpenApi3Properties props) {
         FilterRegistrationBean<BasicAuthFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new BasicAuthFilter(props));
-        registration.addUrlPatterns("/doc.html", "/springdoc-plus-ui/*");
+        registration.addUrlPatterns("/doc.html", "/springdoc-plus-ui/*", "/springdoc-plus-gateway/*");
         registration.setName("springdocPlusBasicAuthFilter");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;

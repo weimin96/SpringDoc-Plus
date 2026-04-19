@@ -392,7 +392,7 @@ mvn -q spring-boot:run
 
 ### Basic Auth 保护文档页面
 
-两个 starter 均支持用 HTTP Basic 保护 `/doc.html` 及 `/springdoc-plus-ui/**` 路径，防止未授权人员访问文档。
+两个 starter 均支持用 HTTP Basic 保护 `/doc.html`、`/springdoc-plus-ui/**` 及 `/springdoc-plus-gateway/**` 路径，防止未授权人员访问文档和前端依赖的配置接口。
 
 ```yaml
 springdoc-plus:
@@ -406,7 +406,7 @@ springdoc-plus:
 
 启用后浏览器会弹出标准 Basic Auth 认证对话框。认证使用恒定时间比对，防止时序攻击。
 
-> ⚠️ Basic Auth 以 Base64 明文传输，生产环境请务必配合 HTTPS 使用。
+> Basic Auth 以 Base64 明文传输，生产环境请务必配合 HTTPS 使用。
 
 ### UI 鉴权透传（Try it out）
 
@@ -466,7 +466,7 @@ pnpm install
 pnpm dev
 
 # 构建并复制产物到 springdoc-plus-ui
-pnpm deploy
+pnpm run deploy
 ```
 
 ---
@@ -515,7 +515,7 @@ routes:
 
 **Q: Basic Auth 开启后 Spring Security 会冲突吗？**
 
-不会。`BasicAuthFilter`（单服务）和 `BasicAuthWebFilter`（网关）只拦截文档相关路径（`/doc.html`、`/springdoc-plus-ui/**`），不影响业务接口路由，也不依赖 Spring Security。
+不会。`BasicAuthFilter`（单服务）和 `BasicAuthWebFilter`（网关）只拦截文档相关路径（`/doc.html`、`/springdoc-plus-ui/**`、`/springdoc-plus-gateway/**`），不影响业务接口路由，也不依赖 Spring Security。
 
 ---
 

@@ -17,6 +17,7 @@ const sidebarLoading = ref(true)
 const sidebarCollapsed = ref(false)
 const showSettings = ref(false)
 const serverConfig = ref<ServerUiConfig>({})
+const groupsError = ref<string | null>(null)
 
 type ViewMode = 'overview' | 'operation'
 
@@ -37,6 +38,7 @@ const { spec, loading: specLoading, error: specError, load: loadSpec, tagGroups 
 const activeOperationKey = computed(() =>
   selectedOperation.value ? `${selectedOperation.value.method}:${selectedOperation.value.path}` : null,
 )
+const contentError = computed(() => groupsError.value ?? specError.value)
 
 function normalizeOperation(method?: string | null, path?: string | null) {
   if (!method || !path) {
@@ -178,6 +180,7 @@ const handlePopstate = () => {
 onMounted(async () => {
   pendingRouteState.value = parseRouteState()
   window.addEventListener('popstate', handlePopstate)
+  groupsError.value = null
 
   try {
     const [g, srv] = await Promise.all([
@@ -188,7 +191,7 @@ onMounted(async () => {
     groups.value = g
     serverConfig.value = srv
 
-    Object.assign(configStore.state, useConfig(srv).state)
+    configStore.updateServer(srv)
 
     if (!configStore.state.authPersist) {
       configStore.state.authValue = ''
@@ -201,8 +204,10 @@ onMounted(async () => {
         selectGroup(g[0], true)
       }
     }
-  } catch (_e) {
-    // handled in content area
+  } catch (e) {
+    groups.value = []
+    activeGroup.value = null
+    groupsError.value = e instanceof Error ? e.message : String(e)
   } finally {
     sidebarLoading.value = false
   }
@@ -239,7 +244,7 @@ onBeforeUnmount(() => {
       :spec-url="activeGroup?.url ?? null"
       :spec="spec"
       :loading="specLoading"
-      :error="specError"
+      :error="contentError"
       :tag-groups="tagGroups"
       :context-path="activeGroup?.contextPath"
       :config="configStore.state"

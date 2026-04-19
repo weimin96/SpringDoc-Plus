@@ -123,6 +123,31 @@ class BasicAuthFilterTest {
         assertThat(chain.getRequest()).isSameAs(request);
     }
 
+    @Test
+    void gatewayContractPathRequiresAuthorization() throws Exception {
+        MockHttpServletRequest request = createRequest("/springdoc-plus-gateway/openapi/groups", null);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertUnauthorized(response);
+    }
+
+    @Test
+    void correctCredentialsPassThroughGatewayContractPath() throws Exception {
+        MockHttpServletRequest request = createRequest(
+                "/springdoc-plus-gateway/openapi/groups",
+                basicHeader("admin:123456")
+        );
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(chain.getRequest()).isSameAs(request);
+    }
+
     private MockHttpServletRequest createRequest(String path, String authorization) {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
         request.setRequestURI(path);
