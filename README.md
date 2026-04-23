@@ -479,6 +479,39 @@ pnpm run deploy
 1. `springdoc-plus.openapi3.enabled` 是否为 `true`（默认值即为 true）
 2. classpath 中是否存在 `springdoc-openapi-starter-webmvc-ui`
 
+**Q: 为什么访问 `/doc.html` 时页面空白，浏览器控制台提示 CSS/JS 403 或 MIME type 错误？**
+
+这通常不是前端构建产物损坏，而是业务项目自己的权限配置只放行了 `/doc.html`，没有放行文档页面继续依赖的静态资源和配置接口。  
+
+SpringDoc-Plus 页面加载时还会继续请求：
+- `/springdoc-plus-ui/**`
+- `/springdoc-plus-gateway/**`
+- `/v3/api-docs/**`
+
+如果这些路径被 Spring Security 或其他鉴权拦截器拒绝，浏览器就会出现：
+- `GET /springdoc-plus-ui/assets/*.css 403`
+- `GET /springdoc-plus-ui/assets/*.js 403`
+- `Refused to apply style ... MIME type ('') is not a supported stylesheet MIME type`
+
+建议在业务项目的安全配置中显式放行这些文档相关路径，例如：
+
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(
+                            "/doc.html",
+                            "/springdoc-plus-ui/**",
+                            "/springdoc-plus-gateway/**",
+                            "/v3/api-docs/**"
+                    ).permitAll()
+                    .anyRequest().authenticated()
+            );
+    return http.build();
+}
+```
+
 **Q: 网关聚合后某个服务的接口"Try it out"请求失败，提示 CORS 或路径错误？**
 
 检查 `context-path` 配置是否与网关路由的 `StripPrefix` 对应。例如：

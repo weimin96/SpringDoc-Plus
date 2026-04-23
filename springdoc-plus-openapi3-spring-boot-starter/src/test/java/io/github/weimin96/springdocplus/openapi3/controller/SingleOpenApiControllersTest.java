@@ -3,6 +3,8 @@ package io.github.weimin96.springdocplus.openapi3.controller;
 import io.github.weimin96.springdocplus.core.enums.GroupOrderStrategy;
 import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 import java.util.Map;
@@ -70,8 +72,14 @@ class SingleOpenApiControllersTest {
     }
 
     @Test
-    void docHtmlForwardsToUiIndex() {
-        DocHtmlController controller = new DocHtmlController();
-        assertThat(controller.docHtml()).isEqualTo("forward:/springdoc-plus-ui/index.html");
+    void docHtmlReturnsUiIndexResource() {
+        DocHtmlController controller = new DocHtmlController(new DefaultResourceLoader());
+        var response = controller.docHtml();
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.TEXT_HTML);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().exists()).isTrue();
+        assertThat(response.getBody().getFilename()).isEqualTo("index.html");
     }
 }

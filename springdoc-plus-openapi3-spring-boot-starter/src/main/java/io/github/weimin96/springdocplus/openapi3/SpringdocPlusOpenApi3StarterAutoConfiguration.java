@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.Ordered;
 
 /**
@@ -30,11 +31,12 @@ public class SpringdocPlusOpenApi3StarterAutoConfiguration {
     /**
      * 创建 DocHtmlController Bean
      *
+     * @param resourceLoader 资源加载器
      * @return DocHtmlController 实例
      */
     @Bean
-    public DocHtmlController docHtmlController() {
-        return new DocHtmlController();
+    public DocHtmlController docHtmlController(ResourceLoader resourceLoader) {
+        return new DocHtmlController(resourceLoader);
     }
 
     /**

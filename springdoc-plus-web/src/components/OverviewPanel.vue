@@ -71,9 +71,6 @@ const securitySchemes = props.spec.components?.securitySchemes ?? {}
           <h2 class="text-[15px] font-semibold text-[var(--c-text)]">快速浏览接口</h2>
           <p class="mt-1 text-[12px] text-[var(--c-muted)]">从服务主页直接跳转到接口详情，分享链接会保留当前定位。</p>
         </div>
-        <span class="rounded-full bg-[var(--c-primary-light)] px-2.5 py-1 text-[11px] font-medium text-[var(--c-primary)]">
-          Shareable
-        </span>
       </div>
 
       <div class="mt-4 grid gap-3">
