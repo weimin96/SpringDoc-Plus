@@ -54,6 +54,8 @@ export function useConfig(serverCfg: ServerUiConfig) {
           value: undefined,
         }))
       }
+      localToSave.oauth2ClientSecret = undefined
+      localToSave.oauth2Password = undefined
       setLocalConfig(localToSave)
     }
     syncState()

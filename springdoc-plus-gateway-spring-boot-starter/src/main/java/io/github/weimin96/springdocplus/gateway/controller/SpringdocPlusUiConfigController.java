@@ -43,6 +43,13 @@ public class SpringdocPlusUiConfigController {
       cfg.setAuthHeaderName(props.getAuth().getHeaderName());
       cfg.setAuthDefaultPrefix(props.getAuth().getDefaultPrefix());
       cfg.setAuthPersist(props.getAuth().isPersist());
+      if (props.getAuth().getOauth2() != null) {
+        cfg.setOauth2Enabled(props.getAuth().getOauth2().isEnabled());
+        cfg.setOauth2TokenUrl(props.getAuth().getOauth2().getTokenUrl());
+        cfg.setOauth2ClientId(props.getAuth().getOauth2().getClientId());
+        cfg.setOauth2Scope(props.getAuth().getOauth2().getScope());
+        cfg.setOauth2GrantType(props.getAuth().getOauth2().getGrantType());
+      }
     }
 
     if (props.getBasic() != null) {

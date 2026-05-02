@@ -98,10 +98,18 @@ export interface SchemaObject {
   required?: string[]
   enum?: unknown[]
   example?: unknown
+  examples?: unknown[]
   default?: unknown
   anyOf?: SchemaObject[]
   oneOf?: SchemaObject[]
   allOf?: SchemaObject[]
+  nullable?: boolean
+  minimum?: number
+  maximum?: number
+  minLength?: number
+  maxLength?: number
+  minItems?: number
+  maxItems?: number
 }
 
 export interface ComponentsObject {
@@ -116,6 +124,8 @@ export interface SecuritySchemeObject {
   in?: string
   name?: string
   description?: string
+  flows?: Record<string, unknown>
+  openIdConnectUrl?: string
 }
 
 export type SecurityRequirementObject = Record<string, string[]>

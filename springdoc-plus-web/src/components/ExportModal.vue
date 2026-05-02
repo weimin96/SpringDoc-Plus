@@ -4,6 +4,7 @@ import type { OpenApiSpec } from '@/types/openapi'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import { saveAs } from 'file-saver'
+import yaml from 'js-yaml'
 import { buildDocData, getTagsMeta, groupApisByTag, summarizeSwagger, buildTagGroups } from '@/utils/openapi'
 
 const props = defineProps<{
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 // 模板文件
 const templateFile = ref<File | null>(null)
 const loading = ref(false)
+const exportFormat = ref<'docx' | 'markdown' | 'html' | 'json' | 'yaml'>('docx')
 
 // 编辑信息
 const editableTitle = ref('')
@@ -143,12 +145,108 @@ async function downloadTemplate() {
 }
 
 // 导出
-const canExport = computed(() => !!props.spec && !!templateFile.value)
+const canExport = computed(() => !!props.spec && (exportFormat.value !== 'docx' || !!templateFile.value))
+
+function downloadTextFile(content: string, fileName: string, type: string) {
+  saveAs(new Blob([content], { type }), fileName)
+  emit('close')
+}
+
+function getSelectedApis(data: any) {
+  if (selectedKeys.value.size === 0) return Array.isArray(data.apis) ? data.apis : []
+  return (Array.isArray(data.apis) ? data.apis : []).filter((api: any) =>
+    selectedKeys.value.has(`${api.method} ${api.path}`),
+  )
+}
+
+function buildMarkdown(data: any) {
+  const lines: string[] = [
+    `# ${data.title || 'API 文档'}`,
+    '',
+    `版本：${data.version || '-'}`,
+    '',
+  ]
+  if (data.description) {
+    lines.push(data.description, '')
+  }
+  for (const group of data.groups ?? []) {
+    lines.push(`## ${group.tag}`, '')
+    if (group.description) lines.push(group.description, '')
+    for (const api of group.items ?? []) {
+      lines.push(`### ${api.summary || api.path}`, '')
+      lines.push(`- Method：${api.method}`)
+      lines.push(`- Path：${api.path}`)
+      if (api.description) lines.push(`- Description：${api.description}`)
+      if (api.parameters?.length) {
+        lines.push('', '| 参数 | 位置 | 类型 | 必填 | 说明 |', '| --- | --- | --- | --- | --- |')
+        api.parameters.forEach((p: any) => lines.push(`| ${p.name} | ${p.in || ''} | ${p.type || ''} | ${p.required ? '是' : '否'} | ${p.desc || ''} |`))
+      }
+      lines.push('')
+    }
+  }
+  return lines.join('\n')
+}
+
+function buildHtml(data: any) {
+  const body = (data.groups ?? []).map((group: any) => `
+    <section>
+      <h2>${group.tag}</h2>
+      ${group.description ? `<p>${group.description}</p>` : ''}
+      ${(group.items ?? []).map((api: any) => `
+        <article>
+          <h3>${api.summary || api.path}</h3>
+          <p><strong>${api.method}</strong> <code>${api.path}</code></p>
+          ${api.description ? `<p>${api.description}</p>` : ''}
+        </article>
+      `).join('')}
+    </section>
+  `).join('')
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>${data.title || 'API 文档'}</title>
+  <style>body{font-family:Arial,sans-serif;max-width:960px;margin:40px auto;line-height:1.7;color:#111827}code{background:#f3f4f6;padding:2px 6px;border-radius:4px}article{border-top:1px solid #e5e7eb;padding:16px 0}</style>
+</head>
+<body>
+  <h1>${data.title || 'API 文档'}</h1>
+  <p>版本：${data.version || '-'}</p>
+  ${data.description ? `<p>${data.description}</p>` : ''}
+  ${body}
+</body>
+</html>`
+}
 
 async function exportDoc() {
   if (!canExport.value || !props.spec) return
   loading.value = true
   try {
+    const data = buildDocData(props.spec)
+    data.title = editableTitle.value || data.title
+    data.version = editableVersion.value || data.version
+    data.description = editableDescription.value || data.description
+    data.apis = getSelectedApis(data)
+    const tagsMeta = getTagsMeta(props.spec)
+    data.groups = groupApisByTag(Array.isArray(data.apis) ? data.apis : [], tagsMeta)
+
+    const baseName = `${data.title || 'api'}_${data.version || ''}`
+    if (exportFormat.value === 'markdown') {
+      downloadTextFile(buildMarkdown(data), `${baseName}.md`, 'text/markdown;charset=utf-8')
+      return
+    }
+    if (exportFormat.value === 'html') {
+      downloadTextFile(buildHtml(data), `${baseName}.html`, 'text/html;charset=utf-8')
+      return
+    }
+    if (exportFormat.value === 'json') {
+      downloadTextFile(JSON.stringify(props.spec, null, 2), `${baseName}.json`, 'application/json;charset=utf-8')
+      return
+    }
+    if (exportFormat.value === 'yaml') {
+      downloadTextFile(yaml.dump(props.spec), `${baseName}.yaml`, 'application/yaml;charset=utf-8')
+      return
+    }
+
     const arrayBuffer = await templateFile.value!.arrayBuffer()
     const zip = new PizZip(arrayBuffer)
     const doc = new Docxtemplater(zip, {
@@ -156,28 +254,10 @@ async function exportDoc() {
       linebreaks: true,
     })
 
-    const data = buildDocData(props.spec)
-    // 应用编辑后的信息
-    data.title = editableTitle.value || data.title
-    data.version = editableVersion.value || data.version
-    data.description = editableDescription.value || data.description
-
-    // 过滤选中的接口
-    if (selectedKeys.value.size > 0) {
-      const keySet = selectedKeys.value
-      data.apis = (Array.isArray(data.apis) ? data.apis : []).filter((api: any) =>
-        keySet.has(`${api.method} ${api.path}`)
-      )
-    }
-
-    const tagsMeta = getTagsMeta(props.spec)
-    data.groups = groupApisByTag(Array.isArray(data.apis) ? data.apis : [], tagsMeta)
-
     doc.setData(data)
     doc.render()
     const out = doc.getZip().generate({ type: 'blob' })
-    const name = `${data.title || 'api'}_${data.version || ''}.docx`
-    saveAs(out, name)
+    saveAs(out, `${baseName}.docx`)
     emit('close')
   } catch (err: any) {
     console.error('导出失败:', err)
@@ -224,7 +304,7 @@ watch(() => props.visible, (v) => {
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
             </svg>
-            导出 DOCX 文档
+            导出 API 文档
           </div>
           <button
             class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[var(--c-muted)] transition-colors hover:bg-[var(--c-border)] hover:text-[var(--c-text)]"
@@ -281,8 +361,22 @@ watch(() => props.visible, (v) => {
               </div>
             </div>
 
-            <!-- 模板选择 -->
             <div class="mb-4 rounded-lg border border-[var(--c-border)] p-3">
+              <h3 class="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">导出格式</h3>
+              <select
+                v-model="exportFormat"
+                class="w-full rounded border border-[var(--c-border)] px-2 py-1.5 text-[12px] outline-none focus:border-[var(--c-primary)]"
+              >
+                <option value="docx">DOCX 文档</option>
+                <option value="markdown">Markdown 文档</option>
+                <option value="html">HTML 文档</option>
+                <option value="json">OpenAPI JSON 原始文件</option>
+                <option value="yaml">OpenAPI YAML 原始文件</option>
+              </select>
+            </div>
+
+            <!-- 模板选择 -->
+            <div v-if="exportFormat === 'docx'" class="mb-4 rounded-lg border border-[var(--c-border)] p-3">
               <h3 class="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">DOCX 模板</h3>
               <p class="mb-2 text-[12px] leading-5 text-[var(--c-muted)]">
                 不上传时会自动尝试加载默认模板。上传自定义模板后，可以复用你自己的封面、页眉、页脚和章节样式。
@@ -307,7 +401,7 @@ watch(() => props.visible, (v) => {
               class="w-full rounded-lg bg-[var(--c-primary)] py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               @click="exportDoc"
             >
-              {{ loading ? '导出中...' : '导出 DOCX' }}
+              {{ loading ? '导出中...' : '导出文件' }}
             </button>
           </div>
 

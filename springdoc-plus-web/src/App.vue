@@ -167,6 +167,20 @@ watch(activeGroup, (group) => {
   }
 })
 
+watch(specError, (message) => {
+  const group = activeGroup.value
+  if (!group) return
+  group.status = message ? 'offline' : 'online'
+  group.statusMessage = message ?? ''
+})
+
+watch(spec, (value) => {
+  const group = activeGroup.value
+  if (!group || !value) return
+  group.status = 'online'
+  group.statusMessage = ''
+})
+
 watch(tagGroups, () => {
   if (pendingRouteState.value) {
     applyRouteState(pendingRouteState.value, true)
@@ -188,7 +202,7 @@ onMounted(async () => {
       fetchServerUiConfig(),
     ])
 
-    groups.value = g
+    groups.value = g.map(group => ({ ...group, status: 'unknown' }))
     serverConfig.value = srv
 
     configStore.updateServer(srv)

@@ -13,9 +13,11 @@ export function resolveSchemaRef(
 export function buildSchemaExample(
   schema: SchemaObject | null,
   schemas?: Record<string, SchemaObject>,
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
+  depth = 0,
 ): unknown {
   if (!schema) return {}
+  if (depth > 8) return {}
 
   const resolved = resolveSchemaRef(schema, schemas)
   if (!resolved) return {}
@@ -26,12 +28,13 @@ export function buildSchemaExample(
   }
 
   if (resolved.example !== undefined) return resolved.example
+  if (resolved.examples?.[0] !== undefined) return resolved.examples[0]
   if (resolved.default !== undefined) return resolved.default
 
   if (resolved.allOf?.length) {
     const merged: Record<string, unknown> = {}
     for (const subSchema of resolved.allOf) {
-      const example = buildSchemaExample(subSchema as SchemaObject, schemas, visited)
+      const example = buildSchemaExample(subSchema as SchemaObject, schemas, visited, depth + 1)
       if (example && typeof example === 'object' && !Array.isArray(example)) {
         Object.assign(merged, example)
       }
@@ -41,7 +44,7 @@ export function buildSchemaExample(
 
   if (resolved.anyOf?.length || resolved.oneOf?.length) {
     const first = (resolved.anyOf ?? resolved.oneOf)![0]
-    return buildSchemaExample(first as SchemaObject, schemas, visited)
+    return buildSchemaExample(first as SchemaObject, schemas, visited, depth + 1)
   }
 
   switch (resolved.type) {
@@ -50,7 +53,7 @@ export function buildSchemaExample(
 
       if (resolved.properties) {
         for (const [key, value] of Object.entries(resolved.properties)) {
-          obj[key] = buildSchemaExample(value as SchemaObject, schemas, visited)
+          obj[key] = buildSchemaExample(value as SchemaObject, schemas, visited, depth + 1)
         }
       }
 
@@ -58,14 +61,14 @@ export function buildSchemaExample(
         const additionalSchema = resolved.additionalProperties === true
           ? { type: 'string' }
           : resolved.additionalProperties
-        obj.sampleKey = buildSchemaExample(additionalSchema as SchemaObject, schemas, visited)
+        obj.sampleKey = buildSchemaExample(additionalSchema as SchemaObject, schemas, visited, depth + 1)
       }
 
       return obj
     }
     case 'array':
       return resolved.items
-        ? [buildSchemaExample(resolved.items as SchemaObject, schemas, visited)]
+        ? [buildSchemaExample(resolved.items as SchemaObject, schemas, visited, depth + 1)]
         : []
     case 'string':
       if (resolved.enum?.[0] !== undefined) return resolved.enum[0]
@@ -74,18 +77,20 @@ export function buildSchemaExample(
       if (resolved.format === 'email') return 'user@example.com'
       if (resolved.format === 'uri') return 'https://example.com'
       if (resolved.format === 'uuid') return '00000000-0000-0000-0000-000000000000'
+      if (resolved.format === 'binary') return ''
+      if (resolved.minLength && resolved.minLength > 6) return 'x'.repeat(resolved.minLength)
       return 'string'
     case 'integer':
-      return 0
+      return resolved.minimum ?? 0
     case 'number':
-      return 0
+      return resolved.minimum ?? 0
     case 'boolean':
       return false
     default:
       if (resolved.properties) {
         const obj: Record<string, unknown> = {}
         for (const [key, value] of Object.entries(resolved.properties)) {
-          obj[key] = buildSchemaExample(value as SchemaObject, schemas, visited)
+          obj[key] = buildSchemaExample(value as SchemaObject, schemas, visited, depth + 1)
         }
         return obj
       }
@@ -95,7 +100,7 @@ export function buildSchemaExample(
           ? { type: 'string' }
           : resolved.additionalProperties
         return {
-          sampleKey: buildSchemaExample(additionalSchema as SchemaObject, schemas, visited),
+          sampleKey: buildSchemaExample(additionalSchema as SchemaObject, schemas, visited, depth + 1),
         }
       }
 

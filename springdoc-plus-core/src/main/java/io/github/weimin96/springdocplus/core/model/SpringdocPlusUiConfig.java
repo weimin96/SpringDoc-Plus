@@ -25,6 +25,16 @@ public class SpringdocPlusUiConfig {
 
     private boolean gatewayBasicEnabled = false;
 
+    private boolean oauth2Enabled = false;
+
+    private String oauth2TokenUrl = "";
+
+    private String oauth2ClientId = "";
+
+    private String oauth2Scope = "";
+
+    private String oauth2GrantType = "client_credentials";
+
     public GroupOrderStrategy getTagsSorter() {
         return tagsSorter;
     }
@@ -87,5 +97,45 @@ public class SpringdocPlusUiConfig {
 
     public void setGatewayBasicEnabled(boolean gatewayBasicEnabled) {
         this.gatewayBasicEnabled = gatewayBasicEnabled;
+    }
+
+    public boolean isOauth2Enabled() {
+        return oauth2Enabled;
+    }
+
+    public void setOauth2Enabled(boolean oauth2Enabled) {
+        this.oauth2Enabled = oauth2Enabled;
+    }
+
+    public String getOauth2TokenUrl() {
+        return oauth2TokenUrl;
+    }
+
+    public void setOauth2TokenUrl(String oauth2TokenUrl) {
+        this.oauth2TokenUrl = oauth2TokenUrl;
+    }
+
+    public String getOauth2ClientId() {
+        return oauth2ClientId;
+    }
+
+    public void setOauth2ClientId(String oauth2ClientId) {
+        this.oauth2ClientId = oauth2ClientId;
+    }
+
+    public String getOauth2Scope() {
+        return oauth2Scope;
+    }
+
+    public void setOauth2Scope(String oauth2Scope) {
+        this.oauth2Scope = oauth2Scope;
+    }
+
+    public String getOauth2GrantType() {
+        return oauth2GrantType;
+    }
+
+    public void setOauth2GrantType(String oauth2GrantType) {
+        this.oauth2GrantType = oauth2GrantType;
     }
 }

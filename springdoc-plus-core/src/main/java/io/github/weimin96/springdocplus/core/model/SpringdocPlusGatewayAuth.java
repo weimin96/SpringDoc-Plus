@@ -34,6 +34,11 @@ public class SpringdocPlusGatewayAuth {
     private boolean persist = true;
 
     /**
+     * OAuth2 / OpenID Connect Token 获取配置。
+     */
+    private OAuth2 oauth2 = new OAuth2();
+
+    /**
      * 无参构造器。
      */
     public SpringdocPlusGatewayAuth() {
@@ -109,5 +114,150 @@ public class SpringdocPlusGatewayAuth {
      */
     public void setPersist(boolean persist) {
         this.persist = persist;
+    }
+
+    /**
+     * 获取 OAuth2 / OpenID Connect Token 获取配置。
+     *
+     * @return OAuth2 / OpenID Connect Token 获取配置
+     */
+    public OAuth2 getOauth2() {
+        return oauth2;
+    }
+
+    /**
+     * 设置 OAuth2 / OpenID Connect Token 获取配置。
+     *
+     * @param oauth2 OAuth2 / OpenID Connect Token 获取配置
+     */
+    public void setOauth2(OAuth2 oauth2) {
+        this.oauth2 = oauth2;
+    }
+
+    /**
+     * OAuth2 / OpenID Connect Token 获取配置。
+     */
+    public static class OAuth2 {
+
+        /**
+         * 是否在 UI 中启用 OAuth2 Token 获取面板。
+         */
+        private boolean enabled = false;
+
+        /**
+         * Token 端点地址。
+         */
+        private String tokenUrl = "";
+
+        /**
+         * 客户端 ID。
+         */
+        private String clientId = "";
+
+        /**
+         * 默认 scope，多个 scope 使用空格分隔。
+         */
+        private String scope = "";
+
+        /**
+         * 授权模式，默认使用 client_credentials。
+         */
+        private String grantType = "client_credentials";
+
+        /**
+         * 无参构造器。
+         */
+        public OAuth2() {
+        }
+
+        /**
+         * 获取是否启用 OAuth2 Token 获取面板。
+         *
+         * @return 是否启用
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * 设置是否启用 OAuth2 Token 获取面板。
+         *
+         * @param enabled 是否启用
+         */
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * 获取 Token 端点地址。
+         *
+         * @return Token 端点地址
+         */
+        public String getTokenUrl() {
+            return tokenUrl;
+        }
+
+        /**
+         * 设置 Token 端点地址。
+         *
+         * @param tokenUrl Token 端点地址
+         */
+        public void setTokenUrl(String tokenUrl) {
+            this.tokenUrl = tokenUrl;
+        }
+
+        /**
+         * 获取客户端 ID。
+         *
+         * @return 客户端 ID
+         */
+        public String getClientId() {
+            return clientId;
+        }
+
+        /**
+         * 设置客户端 ID。
+         *
+         * @param clientId 客户端 ID
+         */
+        public void setClientId(String clientId) {
+            this.clientId = clientId;
+        }
+
+        /**
+         * 获取默认 scope。
+         *
+         * @return 默认 scope
+         */
+        public String getScope() {
+            return scope;
+        }
+
+        /**
+         * 设置默认 scope。
+         *
+         * @param scope 默认 scope
+         */
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        /**
+         * 获取授权模式。
+         *
+         * @return 授权模式
+         */
+        public String getGrantType() {
+            return grantType;
+        }
+
+        /**
+         * 设置授权模式。
+         *
+         * @param grantType 授权模式
+         */
+        public void setGrantType(String grantType) {
+            this.grantType = grantType;
+        }
     }
 }

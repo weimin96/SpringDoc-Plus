@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import type { AuthHeader, LocalUiConfig, MergedConfig, ServerUiConfig } from '@/types'
 
 const props = defineProps<{
@@ -26,7 +26,18 @@ const form = reactive({
   // 新版本多 header 配置
   authHeaders: [] as AuthHeader[],
   authPersist: false,
+  oauth2Enabled: false,
+  oauth2TokenUrl: '',
+  oauth2ClientId: '',
+  oauth2ClientSecret: '',
+  oauth2Scope: '',
+  oauth2GrantType: 'client_credentials' as 'client_credentials' | 'password',
+  oauth2Username: '',
+  oauth2Password: '',
 })
+
+const oauth2Loading = ref(false)
+const oauth2Error = ref('')
 
 // 添加新 header
 function addHeader() {
@@ -47,6 +58,15 @@ watch(
     form.operationsSorter = c.operationsSorter ?? 'alpha'
     form.authEnabled = c.authEnabled ?? false
     form.authPersist = c.authPersist ?? false
+    form.oauth2Enabled = c.oauth2Enabled ?? false
+    form.oauth2TokenUrl = c.oauth2TokenUrl ?? ''
+    form.oauth2ClientId = c.oauth2ClientId ?? ''
+    form.oauth2ClientSecret = c.oauth2ClientSecret ?? ''
+    form.oauth2Scope = c.oauth2Scope ?? ''
+    form.oauth2GrantType = c.oauth2GrantType ?? 'client_credentials'
+    form.oauth2Username = c.oauth2Username ?? ''
+    form.oauth2Password = c.oauth2Password ?? ''
+    oauth2Error.value = ''
 
     // 优先使用新版本多 header 配置，回退到旧版本单 header
     if (c.authHeaders && c.authHeaders.length > 0) {
@@ -67,6 +87,52 @@ watch(
   },
 )
 
+function ensureAuthorizationHeader(token: string) {
+  const existing = form.authHeaders.find(header => header.name.toLowerCase() === 'authorization')
+  if (existing) {
+    existing.defaultPrefix = 'Bearer'
+    existing.value = token
+    return
+  }
+  form.authHeaders.unshift({ name: 'Authorization', defaultPrefix: 'Bearer', value: token })
+}
+
+async function fetchOAuth2Token() {
+  oauth2Error.value = ''
+  if (!form.oauth2TokenUrl || !form.oauth2ClientId) {
+    oauth2Error.value = 'Token 地址和 Client ID 不能为空'
+    return
+  }
+  oauth2Loading.value = true
+  try {
+    const body = new URLSearchParams()
+    body.set('grant_type', form.oauth2GrantType)
+    body.set('client_id', form.oauth2ClientId)
+    if (form.oauth2ClientSecret) body.set('client_secret', form.oauth2ClientSecret)
+    if (form.oauth2Scope) body.set('scope', form.oauth2Scope)
+    if (form.oauth2GrantType === 'password') {
+      body.set('username', form.oauth2Username)
+      body.set('password', form.oauth2Password)
+    }
+
+    const response = await fetch(form.oauth2TokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    })
+    const payload = await response.json().catch(() => ({})) as { access_token?: string; error_description?: string; error?: string }
+    if (!response.ok || !payload.access_token) {
+      throw new Error(payload.error_description || payload.error || `Token 获取失败，HTTP ${response.status}`)
+    }
+    form.authEnabled = true
+    ensureAuthorizationHeader(payload.access_token)
+  } catch (error) {
+    oauth2Error.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    oauth2Loading.value = false
+  }
+}
+
 // 点击应用时触发
 function handleApply() {
   const cfg: LocalUiConfig = {
@@ -75,6 +141,14 @@ function handleApply() {
     authEnabled: form.authEnabled,
     authPersist: form.authPersist,
     authHeaders: form.authHeaders,
+    oauth2Enabled: form.oauth2Enabled,
+    oauth2TokenUrl: form.oauth2TokenUrl,
+    oauth2ClientId: form.oauth2ClientId,
+    oauth2ClientSecret: form.oauth2ClientSecret,
+    oauth2Scope: form.oauth2Scope,
+    oauth2GrantType: form.oauth2GrantType,
+    oauth2Username: form.oauth2Username,
+    oauth2Password: form.oauth2Password,
   }
   emit('apply', cfg)
 }
@@ -235,6 +309,55 @@ function handleApply() {
                   <input v-model="form.authPersist" type="checkbox" class="h-3.5 w-3.5 accent-[var(--c-primary)]" />
                   <span class="text-xs text-[var(--c-muted)]">保存到 localStorage（刷新后保留）</span>
                 </label>
+              </div>
+
+              <div class="rounded-lg border border-[var(--c-border)] bg-white p-3">
+                <div class="mb-3 flex items-center justify-between">
+                  <span class="text-[12px] font-semibold text-[var(--c-text)]">OAuth2 / OpenID Connect</span>
+                  <label class="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--c-muted)]">
+                    <input v-model="form.oauth2Enabled" type="checkbox" class="h-3.5 w-3.5 accent-[var(--c-primary)]" />
+                    启用
+                  </label>
+                </div>
+                <div v-if="form.oauth2Enabled" class="grid grid-cols-[92px_1fr] items-center gap-x-3 gap-y-2">
+                  <label class="text-[13px] text-[var(--c-text)]">Token 地址</label>
+                  <input v-model="form.oauth2TokenUrl" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]" placeholder="https://auth.example.com/oauth2/token" />
+
+                  <label class="text-[13px] text-[var(--c-text)]">授权模式</label>
+                  <select v-model="form.oauth2GrantType" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]">
+                    <option value="client_credentials">client_credentials</option>
+                    <option value="password">password</option>
+                  </select>
+
+                  <label class="text-[13px] text-[var(--c-text)]">Client ID</label>
+                  <input v-model="form.oauth2ClientId" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]" />
+
+                  <label class="text-[13px] text-[var(--c-text)]">Client Secret</label>
+                  <input v-model="form.oauth2ClientSecret" type="password" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]" autocomplete="new-password" />
+
+                  <label class="text-[13px] text-[var(--c-text)]">Scope</label>
+                  <input v-model="form.oauth2Scope" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]" placeholder="read write" />
+
+                  <template v-if="form.oauth2GrantType === 'password'">
+                    <label class="text-[13px] text-[var(--c-text)]">用户名</label>
+                    <input v-model="form.oauth2Username" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]" autocomplete="username" />
+
+                    <label class="text-[13px] text-[var(--c-text)]">密码</label>
+                    <input v-model="form.oauth2Password" type="password" class="w-full rounded-lg border border-[var(--c-border)] bg-white px-2.5 py-[7px] text-[13px] outline-none focus:border-[var(--c-primary)]" autocomplete="current-password" />
+                  </template>
+
+                  <div class="col-span-2">
+                    <button
+                      type="button"
+                      :disabled="oauth2Loading"
+                      class="w-full rounded-lg border border-[var(--c-border)] bg-gray-50 px-3 py-2 text-[13px] text-[var(--c-text)] hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      @click="fetchOAuth2Token"
+                    >
+                      {{ oauth2Loading ? '获取中...' : '获取 Token 并写入 Authorization' }}
+                    </button>
+                    <p v-if="oauth2Error" class="mt-2 text-[12px] text-[var(--c-danger)]">{{ oauth2Error }}</p>
+                  </div>
+                </div>
               </div>
             </div>
 

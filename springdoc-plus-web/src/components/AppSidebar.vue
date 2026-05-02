@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { ApiGroup } from '@/types'
 import type { TagGroup } from '@/types/openapi'
+import type { HttpMethod } from '@/types/openapi'
 
 const props = defineProps<{
   groups: ApiGroup[]
@@ -18,7 +19,9 @@ const emit = defineEmits<{
 }>()
 
 const keyword = ref('')
+const methodFilter = ref<'all' | HttpMethod>('all')
 const expandedTags = ref<Set<string>>(new Set())
+const methodOptions: Array<'all' | HttpMethod> = ['all', 'get', 'post', 'put', 'delete', 'patch']
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
@@ -30,7 +33,7 @@ const filtered = computed(() => {
 
 const filteredTagGroups = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  if (!kw) {
+  if (!kw && methodFilter.value === 'all') {
     return props.tagGroups
   }
   return props.tagGroups
@@ -38,9 +41,11 @@ const filteredTagGroups = computed(() => {
       ...group,
       operations: group.operations.filter(
         (op) =>
-          op.path.toLowerCase().includes(kw) ||
-          op.operation.summary?.toLowerCase().includes(kw) ||
-          op.operation.operationId?.toLowerCase().includes(kw),
+          (methodFilter.value === 'all' || op.method === methodFilter.value) &&
+          (!kw ||
+            op.path.toLowerCase().includes(kw) ||
+            op.operation.summary?.toLowerCase().includes(kw) ||
+            op.operation.operationId?.toLowerCase().includes(kw)),
       ),
     }))
     .filter((group) => group.operations.length > 0)
@@ -120,6 +125,13 @@ function isTagExpanded(tagName: string) {
             :class="activeGroupUrl === group.url ? '!opacity-100' : ''"
           />
           <span class="truncate">{{ group.name }}</span>
+          <span
+            v-if="group.status === 'offline'"
+            class="ml-auto rounded-full bg-rose-50 px-1.5 py-px text-[10px] text-rose-600"
+            :title="group.statusMessage || '文档接口不可达'"
+          >
+            离线
+          </span>
         </button>
 
         <p v-if="filtered.length === 0" class="py-6 text-center text-xs text-[var(--c-muted)]">
@@ -130,7 +142,20 @@ function isTagExpanded(tagName: string) {
       <div v-if="activeGroupUrl && filteredTagGroups.length" class="my-3 border-t border-[var(--c-border)]" />
 
       <template v-if="activeGroupUrl && filteredTagGroups.length">
-        <p class="px-2 py-2 text-[10px] font-bold uppercase tracking-widest text-[#9ca3af]">接口分组</p>
+        <div class="px-2 py-2">
+          <p class="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#9ca3af]">接口分组</p>
+          <div class="flex flex-wrap gap-1">
+            <button
+              v-for="method in methodOptions"
+              :key="method"
+              class="rounded-md border px-1.5 py-1 font-mono text-[10px] transition-colors"
+              :class="methodFilter === method ? 'border-[var(--c-primary)] bg-[var(--c-primary-light)] text-[var(--c-primary)]' : 'border-[var(--c-border)] bg-white text-[var(--c-muted)] hover:bg-[var(--c-bg)]'"
+              @click="methodFilter = method"
+            >
+              {{ method === 'all' ? 'ALL' : method.toUpperCase() }}
+            </button>
+          </div>
+        </div>
 
         <template v-for="tagGroup in filteredTagGroups" :key="tagGroup.name">
           <button

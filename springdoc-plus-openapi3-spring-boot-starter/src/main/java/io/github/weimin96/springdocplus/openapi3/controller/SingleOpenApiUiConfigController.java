@@ -36,6 +36,13 @@ public class SingleOpenApiUiConfigController {
             config.setAuthHeaderName(props.getAuth().getHeaderName());
             config.setAuthDefaultPrefix(props.getAuth().getDefaultPrefix());
             config.setAuthPersist(props.getAuth().isPersist());
+            if (props.getAuth().getOauth2() != null) {
+                config.setOauth2Enabled(props.getAuth().getOauth2().isEnabled());
+                config.setOauth2TokenUrl(props.getAuth().getOauth2().getTokenUrl());
+                config.setOauth2ClientId(props.getAuth().getOauth2().getClientId());
+                config.setOauth2Scope(props.getAuth().getOauth2().getScope());
+                config.setOauth2GrantType(props.getAuth().getOauth2().getGrantType());
+            }
         }
         if (props.getBasic() != null) {
             config.setGatewayBasicEnabled(props.getBasic().isEnabled());
