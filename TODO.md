@@ -23,11 +23,11 @@
    CHANGELOG 里提到"网关静态资源端点添加文件名验证"，说明之前存在路径遍历问题。建议补充对应的安全测试用例并在 README 的安全章节中做说明，增强使用者信心。
 
 三、工程/构建层面
-- [ ] 前端构建耦合 Maven 生命周期
+- [x] 前端构建耦合 Maven 生命周期
    springdoc-plus-ui 在 Maven build 时触发前端重建，导致每次 mvn package 都要跑 pnpm run deploy，在 CI 环境中如果 Node.js 环境不一致很容易失败。建议将前端产物的重建设计为可选（-Pfrontend profile），默认使用已提交的 dist 产物。
-- [ ] JaCoCo 90% 覆盖率门槛与实际情况
+- [x] JaCoCo 90% 覆盖率门槛与实际情况
     pom.xml 中配置了 LINE 覆盖率 minimum=0.90，但从项目规模和迭代速度来看，这个门槛较高，且 Coveralls badge 显示覆盖率可能并未达到。建议先把门槛调整到实际可持续维护的水平（如 70%），避免 CI 卡住或被跳过（-DskipTests）。
-- [ ] springdoc-plus-samples 打包到 release
+- [x] springdoc-plus-samples 打包到 release
     父 pom 的 <modules> 包含了 springdoc-plus-samples，意味着 mvn package 时 sample 工程也会被构建并参与检查，而 sample 本身不应发布到 Maven Central。建议把 samples 模块放进独立 profile 或通过 <skip> 配置排除其 deploy。
 
 四、文档和开发体验

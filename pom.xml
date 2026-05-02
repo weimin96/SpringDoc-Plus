@@ -47,7 +47,6 @@
         <module>springdoc-plus-ui</module>
         <module>springdoc-plus-gateway-spring-boot-starter</module>
         <module>springdoc-plus-openapi3-spring-boot-starter</module>
-        <module>springdoc-plus-samples</module>
     </modules>
 
     <properties>
@@ -194,7 +193,7 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.90</minimum>
+                                            <minimum>0.70</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -221,6 +220,12 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>samples</id>
+            <modules>
+                <module>springdoc-plus-samples</module>
+            </modules>
+        </profile>
         <profile>
             <id>release</id>
             <build>

@@ -471,6 +471,16 @@ pnpm install
 # 开发模式（需要后端服务已启动在 8080）
 pnpm dev
 
+# 构建前端产物
+pnpm run build
+
+# Maven 构建时显式重建前端
+cd ..
+mvn -q -Pfrontend -pl springdoc-plus-ui package
+
+# 构建示例工程
+mvn -q -Psamples package
+
 # 构建并复制产物到 springdoc-plus-ui
 pnpm run deploy
 ```

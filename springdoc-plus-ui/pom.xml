@@ -16,7 +16,7 @@
   <properties>
     <frontend.workingDirectory>${project.basedir}/../springdoc-plus-web</frontend.workingDirectory>
     <frontend.outputDirectory>${project.build.outputDirectory}/META-INF/resources/springdoc-plus-ui</frontend.outputDirectory>
-    <skipFrontendBuild>false</skipFrontendBuild>
+    <skipFrontendBuild>true</skipFrontendBuild>
   </properties>
 
   <build>
@@ -88,5 +88,14 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>frontend</id>
+      <properties>
+        <skipFrontendBuild>false</skipFrontendBuild>
+      </properties>
+    </profile>
+  </profiles>
 
 </project>
