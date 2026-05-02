@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -114,6 +115,19 @@ class BasicAuthFilterTest {
     @Test
     void correctCredentialsPassThroughUiAssetPath() throws Exception {
         MockHttpServletRequest request = createRequest("/springdoc-plus-ui/index.html", basicHeader("admin:123456"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(chain.getRequest()).isSameAs(request);
+    }
+
+    @Test
+    void bcryptPasswordPassesThrough() throws Exception {
+        properties.getBasic().setPassword("{bcrypt}" + new BCryptPasswordEncoder().encode("123456"));
+        MockHttpServletRequest request = createRequest("/doc.html", basicHeader("admin:123456"));
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 

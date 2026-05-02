@@ -26,6 +26,7 @@ const form = reactive({
   // 新版本多 header 配置
   authHeaders: [] as AuthHeader[],
   authPersist: false,
+  authStorage: 'session' as 'local' | 'session',
   oauth2Enabled: false,
   oauth2TokenUrl: '',
   oauth2ClientId: '',
@@ -58,6 +59,7 @@ watch(
     form.operationsSorter = c.operationsSorter ?? 'alpha'
     form.authEnabled = c.authEnabled ?? false
     form.authPersist = c.authPersist ?? false
+    form.authStorage = c.authStorage ?? 'session'
     form.oauth2Enabled = c.oauth2Enabled ?? false
     form.oauth2TokenUrl = c.oauth2TokenUrl ?? ''
     form.oauth2ClientId = c.oauth2ClientId ?? ''
@@ -140,6 +142,7 @@ function handleApply() {
     operationsSorter: form.operationsSorter,
     authEnabled: form.authEnabled,
     authPersist: form.authPersist,
+    authStorage: form.authStorage,
     authHeaders: form.authHeaders,
     oauth2Enabled: form.oauth2Enabled,
     oauth2TokenUrl: form.oauth2TokenUrl,
@@ -307,9 +310,22 @@ function handleApply() {
               <div class="flex items-center gap-2 pt-1">
                 <label class="flex cursor-pointer items-center gap-1.5">
                   <input v-model="form.authPersist" type="checkbox" class="h-3.5 w-3.5 accent-[var(--c-primary)]" />
-                  <span class="text-xs text-[var(--c-muted)]">保存到 localStorage（刷新后保留）</span>
+                  <span class="text-xs text-[var(--c-muted)]">保存 Token（可选择存储范围）</span>
                 </label>
               </div>
+              <div v-if="form.authPersist" class="grid grid-cols-2 gap-2">
+                <label class="rounded-lg border border-[var(--c-border)] bg-white p-2 text-[12px] text-[var(--c-muted)]">
+                  <input v-model="form.authStorage" type="radio" value="session" class="mr-1.5 accent-[var(--c-primary)]" />
+                  sessionStorage
+                </label>
+                <label class="rounded-lg border border-[var(--c-border)] bg-white p-2 text-[12px] text-[var(--c-muted)]">
+                  <input v-model="form.authStorage" type="radio" value="local" class="mr-1.5 accent-[var(--c-primary)]" />
+                  localStorage
+                </label>
+              </div>
+              <p v-if="form.authPersist && form.authStorage === 'local'" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">
+                localStorage 会在浏览器长期保留 Token，存在被 XSS 窃取的风险。生产环境建议优先使用 sessionStorage。
+              </p>
 
               <div class="rounded-lg border border-[var(--c-border)] bg-white p-3">
                 <div class="mb-3 flex items-center justify-between">

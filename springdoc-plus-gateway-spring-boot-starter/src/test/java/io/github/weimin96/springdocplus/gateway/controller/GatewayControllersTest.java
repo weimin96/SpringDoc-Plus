@@ -136,6 +136,9 @@ class GatewayControllersTest {
         ResponseEntity<Resource> invalid = controller.uiAsset("../secret").block();
         assertThat(invalid.getStatusCode().value()).isEqualTo(400);
 
+        ResponseEntity<Resource> encodedTraversal = controller.uiAsset("%2e%2e%2fsecret").block();
+        assertThat(encodedTraversal.getStatusCode().value()).isEqualTo(400);
+
         ResponseEntity<Resource> root = controller.uiRootAsset("favicon.svg").block();
         assertThat(root.getHeaders().getContentType().toString()).contains("image/svg+xml");
 

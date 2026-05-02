@@ -33,6 +33,7 @@ export interface ServerUiConfig {
   /** 多个鉴权请求头 */
   authHeaders?:      AuthHeader[]
   authPersist?:      boolean
+  authStorage?:      'local' | 'session'
   oauth2Enabled?:    boolean
   oauth2TokenUrl?:   string
   oauth2ClientId?:   string
@@ -52,6 +53,7 @@ export interface LocalUiConfig {
   /** 多个鉴权请求头 */
   authHeaders?:       AuthHeader[]
   authPersist?:       boolean
+  authStorage?:       'local' | 'session'
   oauth2Enabled?:     boolean
   oauth2TokenUrl?:    string
   oauth2ClientId?:    string

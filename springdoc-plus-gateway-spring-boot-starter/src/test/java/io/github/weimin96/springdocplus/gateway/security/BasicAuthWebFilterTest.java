@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.test.StepVerifier;
 
@@ -144,6 +145,31 @@ class BasicAuthWebFilterTest {
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
         // 标记是否放行
+        final boolean[] passed = {false };
+        StepVerifier.create(filter.filter(exchange, chain -> {
+            passed[0] = true;
+            return reactor.core.publisher.Mono.empty();
+        }))
+                .verifyComplete();
+
+        assertThat(passed[0]).isTrue();
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+    }
+
+    /**
+     * 测试 {bcrypt} 前缀密码，避免生产配置必须保存明文密码。
+     */
+    @Test
+    void testBcryptPassword_passThrough() {
+        String encodedPassword = new BCryptPasswordEncoder().encode("123456");
+        props.getBasic().setPassword("{bcrypt}" + encodedPassword);
+
+        String encoded = Base64.getEncoder().encodeToString("admin:123456".getBytes());
+        MockServerHttpRequest request = MockServerHttpRequest.get("/doc.html")
+                .header(HttpHeaders.AUTHORIZATION, "Basic " + encoded)
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
         final boolean[] passed = {false };
         StepVerifier.create(filter.filter(exchange, chain -> {
             passed[0] = true;

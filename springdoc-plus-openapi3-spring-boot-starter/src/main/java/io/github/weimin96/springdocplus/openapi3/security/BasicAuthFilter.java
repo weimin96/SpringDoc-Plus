@@ -1,5 +1,6 @@
 package io.github.weimin96.springdocplus.openapi3.security;
 
+import io.github.weimin96.springdocplus.core.security.BasicPasswordMatcher;
 import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -90,12 +91,16 @@ public class BasicAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        String expected = username + ":" + password;
+        String[] credentials = decoded.split(":", 2);
+        if (credentials.length != 2) {
+            sendUnauthorized(response);
+            return;
+        }
 
-        // 恒定时间比对，防止时序攻击
-        boolean matches = MessageDigest.isEqual(
-                expected.getBytes(StandardCharsets.UTF_8),
-                decoded.getBytes(StandardCharsets.UTF_8));
+        boolean usernameMatches = MessageDigest.isEqual(
+                username.getBytes(StandardCharsets.UTF_8),
+                credentials[0].getBytes(StandardCharsets.UTF_8));
+        boolean matches = usernameMatches && BasicPasswordMatcher.matches(credentials[1], password);
 
         if (!matches) {
             log.info("Basic Auth 鉴权失败，请求路径: {}", path);

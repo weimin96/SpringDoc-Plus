@@ -114,6 +114,9 @@ public class DocHtmlController {
     private boolean isValidFilename(String filename) {
         return filename != null
                 && !filename.contains("..")
+                && !filename.toLowerCase().contains("%2e")
+                && !filename.toLowerCase().contains("%2f")
+                && !filename.toLowerCase().contains("%5c")
                 && !filename.contains("/")
                 && !filename.contains("\\");
     }

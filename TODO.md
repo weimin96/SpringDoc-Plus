@@ -15,11 +15,11 @@
    调试面板根据 Schema 自动生成示例值，但对于 $ref 嵌套较深的复杂 Schema，生成质量不稳定。可以考虑用 openapi-sampler 这类专门库来统一处理。
 
 二、安全层面
-- [ ] Basic Auth 密码明文写 YAML
+- [x] Basic Auth 密码明文写 YAML
    目前 basic.password 是普通字符串，用户极容易直接把明文密码提交到 Git。应支持 {bcrypt} 前缀加密或与 Spring 的 PasswordEncoder 集成，并在文档中明确警告。
-- [ ] Token 持久化到 localStorage 的风险
+- [x] Token 持久化到 localStorage 的风险
    persist: true 会把 Bearer Token 存入浏览器 localStorage，存在 XSS 窃取风险。应在文档中说明风险，或提供 sessionStorage 选项，以及增加 Token 有效期提醒。
-- [ ] 路径遍历校验
+- [x] 路径遍历校验
    CHANGELOG 里提到"网关静态资源端点添加文件名验证"，说明之前存在路径遍历问题。建议补充对应的安全测试用例并在 README 的安全章节中做说明，增强使用者信心。
 
 三、工程/构建层面

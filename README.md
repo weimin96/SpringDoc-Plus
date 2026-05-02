@@ -164,13 +164,13 @@ springdoc-plus:
       enabled: true
       header-name: Authorization
       default-prefix: Bearer
-      persist: true          # 是否将 Token 持久化到浏览器本地存储
+      persist: true          # 是否保存 Token，UI 内可选择 sessionStorage 或 localStorage
 
     # HTTP Basic 保护（保护 /doc.html 页面本身）
     basic:
       enabled: false
       username: admin
-      password: secret
+      password: "{bcrypt}$2a$10$..."
 ```
 
 #### 4. 访问
@@ -230,7 +230,7 @@ springdoc-plus:
     basic:
       enabled: false
       username: admin
-      password: secret
+      password: "{bcrypt}$2a$10$..."
 
     # UI 鉴权透传 - 调试接口时自动携带 Token
     auth:
@@ -348,10 +348,10 @@ mvn -q spring-boot:run
 | `auth.enabled` | Boolean | `true` | 是否在 UI 中展示鉴权配置入口 |
 | `auth.header-name` | String | `Authorization` | 鉴权 Header 名称 |
 | `auth.default-prefix` | String | `""` | 鉴权值前缀，如 `Bearer` |
-| `auth.persist` | Boolean | `true` | 是否将填写的 Token 持久化到浏览器 |
+| `auth.persist` | Boolean | `true` | 是否保存填写的 Token |
 | `basic.enabled` | Boolean | `false` | 是否开启 HTTP Basic 保护文档页面 |
 | `basic.username` | String | — | Basic Auth 用户名（`enabled=true` 时必填） |
-| `basic.password` | String | — | Basic Auth 密码（`enabled=true` 时必填） |
+| `basic.password` | String | — | Basic Auth 密码，生产环境建议使用 `{bcrypt}` 前缀哈希值 |
 
 ### 网关聚合配置（`springdoc-plus.gateway`）
 
@@ -371,10 +371,10 @@ mvn -q spring-boot:run
 | `auth.enabled` | Boolean | `true` | 是否启用 UI 鉴权透传 |
 | `auth.header-name` | String | `Authorization` | 鉴权 Header 名称 |
 | `auth.default-prefix` | String | `""` | 鉴权值前缀，如 `Bearer` |
-| `auth.persist` | Boolean | `true` | 是否将填写的 Token 持久化到浏览器 |
+| `auth.persist` | Boolean | `true` | 是否保存填写的 Token |
 | `basic.enabled` | Boolean | `false` | 是否开启 HTTP Basic 保护文档页面 |
 | `basic.username` | String | — | Basic Auth 用户名 |
-| `basic.password` | String | — | Basic Auth 密码 |
+| `basic.password` | String | — | Basic Auth 密码，生产环境建议使用 `{bcrypt}` 前缀哈希值 |
 
 ### GatewayRoute 字段
 
@@ -401,12 +401,12 @@ springdoc-plus:
     basic:
       enabled: true
       username: admin
-      password: your-secret-password
+      password: "{bcrypt}$2a$10$..."
 ```
 
-启用后浏览器会弹出标准 Basic Auth 认证对话框。认证使用恒定时间比对，防止时序攻击。
+启用后浏览器会弹出标准 Basic Auth 认证对话框。认证使用恒定时间比对，防止时序攻击。`password` 兼容明文配置，但生产环境应使用 `{bcrypt}` 前缀哈希值，避免将明文密码提交到 Git。
 
-> Basic Auth 以 Base64 明文传输，生产环境请务必配合 HTTPS 使用。
+> Basic Auth 以 Base64 明文传输，生产环境请务必配合 HTTPS 使用。可以使用 Spring Security 的 BCrypt 工具生成密码哈希，配置时保留 `{bcrypt}` 前缀。
 
 ### UI 鉴权透传（Try it out）
 
@@ -419,8 +419,14 @@ springdoc-plus:
       enabled: true
       header-name: Authorization   # 请求头名称
       default-prefix: Bearer       # 自动拼接前缀，填写 Token 时不需要手动加 "Bearer "
-      persist: true                # 刷新页面后 Token 仍然保留
+      persist: true                # 是否保存 Token，UI 内可选择 sessionStorage 或 localStorage
 ```
+
+Token 保存到 `localStorage` 后会长期保留，若页面存在 XSS 漏洞，Token 可能被窃取。生产环境建议优先选择 `sessionStorage`，只在当前浏览器会话内保留 Token；如必须使用 `localStorage`，应配合严格的内容安全策略、短有效期 Token 与 HTTPS。
+
+### 静态资源路径安全
+
+网关 starter 对 `/springdoc-plus-ui/assets/{filename}`、`/springdoc-plus-ui/docs/{filename}` 与 `/springdoc-plus-ui/{filename}` 只接受单文件名，不允许 `..`、路径分隔符和常见 URL 编码路径片段。对应回归测试覆盖普通路径遍历、反斜杠路径遍历和编码路径遍历，防止通过文档静态资源端点读取受控目录外的 classpath 资源。
 
 ---
 

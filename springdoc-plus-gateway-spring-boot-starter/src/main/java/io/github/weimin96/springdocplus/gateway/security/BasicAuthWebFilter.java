@@ -1,5 +1,6 @@
 package io.github.weimin96.springdocplus.gateway.security;
 
+import io.github.weimin96.springdocplus.core.security.BasicPasswordMatcher;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -70,13 +71,16 @@ public class BasicAuthWebFilter implements WebFilter {
             return unauthorized(exchange);
         }
 
-        String expected = username + ":" + password;
+        String[] credentials = decoded.split(":", 2);
+        if (credentials.length != 2) {
+            return unauthorized(exchange);
+        }
 
-        // 使用恒定时间比对，防止时序攻击
-        boolean matches = MessageDigest.isEqual(
-                expected.getBytes(StandardCharsets.UTF_8),
-                decoded.getBytes(StandardCharsets.UTF_8)
+        boolean usernameMatches = MessageDigest.isEqual(
+                username.getBytes(StandardCharsets.UTF_8),
+                credentials[0].getBytes(StandardCharsets.UTF_8)
         );
+        boolean matches = usernameMatches && BasicPasswordMatcher.matches(credentials[1], password);
         if (!matches) {
             return unauthorized(exchange);
         }
