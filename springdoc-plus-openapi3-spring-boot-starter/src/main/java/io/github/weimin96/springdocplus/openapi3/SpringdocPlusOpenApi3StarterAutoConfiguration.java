@@ -3,8 +3,10 @@ package io.github.weimin96.springdocplus.openapi3;
 import io.github.weimin96.springdocplus.openapi3.controller.DocHtmlController;
 import io.github.weimin96.springdocplus.openapi3.controller.SingleOpenApiGroupsController;
 import io.github.weimin96.springdocplus.openapi3.controller.SingleOpenApiUiConfigController;
+import io.github.weimin96.springdocplus.openapi3.customizer.DocOrderOperationCustomizer;
 import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
 import io.github.weimin96.springdocplus.openapi3.security.BasicAuthFilter;
+import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -59,6 +61,16 @@ public class SpringdocPlusOpenApi3StarterAutoConfiguration {
     @Bean
     public SingleOpenApiUiConfigController singleOpenApiUiConfigController(SpringdocPlusOpenApi3Properties props) {
         return new SingleOpenApiUiConfigController(props);
+    }
+
+    /**
+     * 创建 DocOrder 注解转换器。
+     *
+     * @return OperationCustomizer 实例
+     */
+    @Bean
+    public OperationCustomizer springdocPlusDocOrderOperationCustomizer() {
+        return new DocOrderOperationCustomizer();
     }
 
     /**

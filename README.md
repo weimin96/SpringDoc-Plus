@@ -1,5 +1,7 @@
 # SpringDoc-Plus
 
+[English README](README.en.md)
+
 <p align="center">
   <img src="./screenshot/hero.svg" alt="SpringDoc-Plus 项目主图" width="100%" />
 </p>
@@ -548,7 +550,17 @@ routes:
 
 **Q: 如何使用 `x-order` 控制接口排序？**
 
-在 `tags-sorter` / `operations-sorter` 设置为 `order` 后，通过 springdoc 的扩展注解设置排序值：
+在 `tags-sorter` / `operations-sorter` 设置为 `order` 后，可以优先使用 `@DocOrder` 简化接口排序：
+
+```java
+@DocOrder(1)
+@GetMapping("/users")
+public List<User> users() {
+    return List.of();
+}
+```
+
+也可以继续通过 springdoc 的扩展注解设置排序值：
 
 ```java
 @Tag(

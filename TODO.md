@@ -31,11 +31,11 @@
     父 pom 的 <modules> 包含了 springdoc-plus-samples，意味着 mvn package 时 sample 工程也会被构建并参与检查，而 sample 本身不应发布到 Maven Central。建议把 samples 模块放进独立 profile 或通过 <skip> 配置排除其 deploy。
 
 四、文档和开发体验
-- [ ] 英文 README 缺失
+- [x] 英文 README 缺失
     项目定位是支持 Spring Boot 4 生态的 Knife4j 替代品，有一定国际化潜力，但 README 完全是中文。加一份英文版（或双语切换）能大幅提升 Star 数和 Issue 质量。
-- [ ] x-order 使用方式繁琐
+- [x] x-order 使用方式繁琐
     当前要通过 @Extension + @ExtensionProperty 两层注解来设置排序，比 Knife4j 的 @ApiSupport(order=1) 繁琐很多。可以考虑提供一个简化注解 @DocOrder(1) 作为语法糖，降低迁移成本。
-- [ ] 没有 Issue / PR 模板
+- [x] 没有 Issue / PR 模板
     当前 Issues 为 0，但随着用户增多问题会进来。.github/ 目录下可以加 ISSUE_TEMPLATE 和 PULL_REQUEST_TEMPLATE，方便收集必要的环境信息（Spring Boot 版本、starter 版本、错误日志等），减少来回沟通成本。
 
 五、前端层面

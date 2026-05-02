@@ -1,0 +1,24 @@
+name: 功能建议
+description: 提出新的能力、兼容性或开发体验改进
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题背景
+      description: 当前使用中遇到的限制或迁移痛点。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 请说明期望的配置、接口或 UI 行为。
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: 兼容性影响
+      description: 是否涉及 Spring Boot、Spring Cloud、springdoc 或 Knife4j 迁移兼容。

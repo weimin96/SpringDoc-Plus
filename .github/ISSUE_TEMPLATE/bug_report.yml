@@ -1,0 +1,53 @@
+name: 缺陷报告
+description: 报告 SpringDoc-Plus 使用过程中的可复现问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: SpringDoc-Plus 版本
+      placeholder: "0.1.7"
+    validations:
+      required: true
+  - type: input
+    id: spring_boot_version
+    attributes:
+      label: Spring Boot 版本
+      placeholder: "4.0.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 使用模式
+      options:
+        - 单服务模式
+        - 网关 manual 模式
+        - 网关 discover 模式
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请提供最小可复现步骤、请求地址和关键配置。
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误日志或截图
+      render: text
