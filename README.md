@@ -83,7 +83,7 @@
 - Java 21
 - Spring Boot 4.0.5
 - Spring Cloud 2025.1.0
-- springdoc-openapi 3.0.1
+- springdoc-openapi 3.0.3
 
 **前端**（`springdoc-plus-web`）
 - Vue 3.5 + TypeScript 5.9
@@ -119,7 +119,7 @@ springdoc-plus
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-openapi3-spring-boot-starter</artifactId>
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 </dependency>
 ```
 
@@ -189,7 +189,7 @@ http://localhost:8080/doc.html
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 </dependency>
 ```
 

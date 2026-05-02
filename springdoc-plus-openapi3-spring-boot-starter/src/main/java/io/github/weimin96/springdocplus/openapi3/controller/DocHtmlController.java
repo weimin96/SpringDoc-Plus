@@ -1,5 +1,6 @@
 package io.github.weimin96.springdocplus.openapi3.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.MediaType;
@@ -33,6 +34,7 @@ public class DocHtmlController {
      *
      * @return HTML 页面响应
      */
+    @Hidden
     @GetMapping(value = "/doc.html", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> docHtml() {
         // 直接返回资源而不是使用内部转发，避免业务应用只放行 /doc.html 时，
