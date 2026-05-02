@@ -3,6 +3,7 @@ import yaml from 'js-yaml'
 import type { OpenApiSpec, TagGroup, OperationItem, HttpMethod } from '@/types/openapi'
 import type { MergedConfig } from '@/types'
 import { buildAuthHeaders, buildLegacyAuthHeader } from '@/utils/auth'
+import { assertOk, describeUnknownError } from '@/utils/apiError'
 
 const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace']
 
@@ -29,7 +30,7 @@ export function useOpenApi(cfg: MergedConfig) {
       }
 
       const res = await fetch(url, { headers })
-      if (!res.ok) throw new Error(`HTTP ${res.status} — 无法加载文档 spec`)
+      await assertOk(res, 'OpenAPI 文档')
 
       const contentType = res.headers.get('content-type') || ''
       const responseText = await res.text()
@@ -55,7 +56,7 @@ export function useOpenApi(cfg: MergedConfig) {
 
       spec.value = data
     } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
+      error.value = describeUnknownError(e, 'OpenAPI 文档')
     } finally {
       loading.value = false
     }

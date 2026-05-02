@@ -39,5 +39,5 @@
     当前 Issues 为 0，但随着用户增多问题会进来。.github/ 目录下可以加 ISSUE_TEMPLATE 和 PULL_REQUEST_TEMPLATE，方便收集必要的环境信息（Spring Boot 版本、starter 版本、错误日志等），减少来回沟通成本。
 
 五、前端层面
-- [ ] 前端错误处理
+- [x] 前端错误处理
     CHANGELOG 提到"文档组接口加载失败时前端没有明确错误提示"在 0.1.6 才修复，说明错误边界处理整体还不够健壮。建议对所有 API 请求统一加全局错误拦截，区分 network error、401/403、5xx 并给出对用户友好的说明。
