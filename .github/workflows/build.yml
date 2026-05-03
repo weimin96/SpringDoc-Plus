@@ -38,7 +38,32 @@ jobs:
           cache: 'maven'
 
       - name: Build, test and generate JaCoCo reports
-        run: mvn -q verify jacoco:report -DskipFrontendBuild=true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $maximumAttemptCount = 3
+          $mavenRepositoryPath = Join-Path $HOME '.m2/repository'
+
+          for ($attempt = 1; $attempt -le $maximumAttemptCount; $attempt++) {
+            if (Test-Path -LiteralPath $mavenRepositoryPath) {
+              Get-ChildItem -LiteralPath $mavenRepositoryPath -Filter '*.lastUpdated' -Recurse -ErrorAction SilentlyContinue |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+            }
+
+            mvn -q -U verify jacoco:report -DskipFrontendBuild=true
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+
+            if ($attempt -eq $maximumAttemptCount) {
+              exit $LASTEXITCODE
+            }
+
+            $waitSeconds = 10 * $attempt
+            Write-Host "Maven 构建失败，$waitSeconds 秒后重试。"
+            Start-Sleep -Seconds $waitSeconds
+          }
 
       - name: Install Coveralls reporter
         shell: bash
