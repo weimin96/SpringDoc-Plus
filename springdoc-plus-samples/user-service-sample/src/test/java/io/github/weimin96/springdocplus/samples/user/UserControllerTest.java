@@ -39,7 +39,7 @@ class UserControllerTest {
     void searchAndStatusEndpointsReturnExpectedValues() {
         var search = controller.search("bob", "ACTIVE", List.of(1L, 2L), LocalDate.now(), LocalDate.now());
         assertThat(search.getBody()).hasSize(1);
-        assertThat(search.getBody().getFirst().getName()).contains("bob");
+        assertThat(search.getBody().get(0).getName()).contains("bob");
 
         var status = controller.getStatus(201);
         assertThat(status.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -141,7 +141,7 @@ class UserControllerTest {
         assertThat(mapResult.getBody()).containsEntry("processed", true);
 
         var byStatus = controller.getByStatus(UserStatus.PENDING);
-        assertThat(byStatus.getBody().getFirst().getStatus()).isEqualTo(UserStatus.PENDING);
+        assertThat(byStatus.getBody().get(0).getStatus()).isEqualTo(UserStatus.PENDING);
 
         var async = controller.asyncProcess(Map.of("task", "demo"));
         assertThat(async.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);

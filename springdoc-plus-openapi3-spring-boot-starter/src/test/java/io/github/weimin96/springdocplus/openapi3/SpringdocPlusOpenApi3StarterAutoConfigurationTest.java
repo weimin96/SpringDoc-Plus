@@ -42,7 +42,7 @@ class SpringdocPlusOpenApi3StarterAutoConfigurationTest {
                     assertThat(properties.getAuth().isEnabled()).isFalse();
                     assertThat(properties.getBasic().isEnabled()).isTrue();
                     assertThat(properties.getGroups()).hasSize(1);
-                    assertThat(properties.getGroups().getFirst().getName()).isEqualTo("admin");
+                    assertThat(properties.getGroups().get(0).getName()).isEqualTo("admin");
                 });
     }
 

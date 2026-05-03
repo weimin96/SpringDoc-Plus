@@ -29,7 +29,7 @@ class SingleOpenApiControllersTest {
         assertThat(result).containsKey("groups");
         List<?> groups = (List<?>) result.get("groups");
         assertThat(groups).hasSize(1);
-        Map<?, ?> first = (Map<?, ?>) groups.getFirst();
+        Map<?, ?> first = (Map<?, ?>) groups.get(0);
         assertThat(first.get("name")).isEqualTo("admin");
         assertThat(first.get("url")).isEqualTo("/v3/api-docs?group=admin");
         assertThat(first.get("contextPath")).isEqualTo("/api");
@@ -42,7 +42,7 @@ class SingleOpenApiControllersTest {
         Map<String, Object> result = controller.groups();
 
         List<?> groups = (List<?>) result.get("groups");
-        Map<?, ?> first = (Map<?, ?>) groups.getFirst();
+        Map<?, ?> first = (Map<?, ?>) groups.get(0);
         assertThat(first.get("name")).isEqualTo("default");
         assertThat(first.get("url")).isEqualTo("/v3/api-docs");
         assertThat(first.get("contextPath")).isEqualTo("/");

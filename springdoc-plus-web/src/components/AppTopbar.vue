@@ -79,7 +79,7 @@ const showExportModal = ref(false)
           <line x1="9" y1="15" x2="12" y2="12" />
           <line x1="15" y1="15" x2="12" y2="12" />
         </svg>
-        导出 DOCX
+        导出文档
       </button>
 
       <!-- Open JSON -->

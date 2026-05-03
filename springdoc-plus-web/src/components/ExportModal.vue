@@ -317,7 +317,7 @@ watch(() => props.visible, (v) => {
         </div>
 
         <!-- Body -->
-        <div class="flex max-h-[calc(90vh-120px)] overflow-hidden">
+        <div class="flex h-[calc(90vh-120px)] overflow-hidden">
           <!-- Left Panel -->
           <div class="w-[320px] flex-shrink-0 overflow-y-auto border-r border-[var(--c-border)] p-4">
             <div class="mb-4 rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] p-3">
@@ -416,7 +416,7 @@ watch(() => props.visible, (v) => {
                 </label>
               </div>
 
-              <div class="max-h-[calc(90vh-280px)] overflow-y-auto rounded-lg border border-[var(--c-border)]">
+              <div class="rounded-lg border border-[var(--c-border)]">
                 <div
                   v-for="group in groupList"
                   :key="group.tag"
