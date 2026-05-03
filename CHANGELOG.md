@@ -4,9 +4,21 @@
 
 ## [0.1.7] - 2026-05-03
 
+### 新增
+
+- 新增 OAuth2 Token 获取面板。
+- 新增 HTTP Method 过滤。
+- 导出从单一 DOCX 扩展为 DOCX、Markdown、HTML、OpenAPI JSON、OpenAPI YAML。
+- Basic Auth 支持 {bcrypt} 前缀密码。
+- 前端配置存储 Token 可选择 sessionStorage 或 localStorage。
+
 ### 优化
 
-- springdoc 依赖升级
+- springdoc 依赖升级。
+- JDK 降级为17。
+- 文档组离线标记和提示。
+- 增强 $ref、组合 Schema、示例值、格式字段和深层嵌套的 Mock 示例生成。
+- 静态资源端点路径校验增强。
 
 ### 修复
 
