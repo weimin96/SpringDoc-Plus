@@ -110,9 +110,6 @@ jobs:
             "springdoc-plus-core/target/site/jacoco/jacoco.xml"
             "springdoc-plus-gateway-spring-boot-starter/target/site/jacoco/jacoco.xml"
             "springdoc-plus-openapi3-spring-boot-starter/target/site/jacoco/jacoco.xml"
-            "springdoc-plus-samples/gateway-sample/target/site/jacoco/jacoco.xml"
-            "springdoc-plus-samples/user-service-sample/target/site/jacoco/jacoco.xml"
-            "springdoc-plus-samples/order-service-sample/target/site/jacoco/jacoco.xml"
           )
 
           for coverage_file in "${coverage_files[@]}"; do
