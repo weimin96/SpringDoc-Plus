@@ -6,7 +6,7 @@ SpringDoc-Plus 是一个参考 Knife4j 4.5 的网关聚合文档方案，适配 
 
 ### 技术栈
 
-- Java 21
+- Java 17
 - Spring Boot 4.0.1
 - Spring Cloud 2025.1.0
 - Springdoc OpenAPI 3.0.1

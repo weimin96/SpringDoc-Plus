@@ -51,7 +51,7 @@
 
     <properties>
         <revision>0.1.7</revision>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <spring-boot.version>4.0.5</spring-boot.version>
         <spring-cloud.version>2025.1.0</spring-cloud.version>
         <springdoc.version>3.0.3</springdoc.version>

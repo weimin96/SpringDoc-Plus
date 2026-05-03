@@ -9,7 +9,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.weimin96/springdoc-plus.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.weimin96/springdoc-plus)
 [![License](https://img.shields.io/github/license/weimin96/springdoc-plus)](https://github.com/weimin96/springdoc-plus/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/weimin96/SpringDoc-Plus/badge.svg?branch=main)](https://coveralls.io/github/weimin96/SpringDoc-Plus?branch=main)
-[![Java Version](https://img.shields.io/badge/Java-21-blue)](https://www.oracle.com/java/technologies/downloads/)
+[![Java Version](https://img.shields.io/badge/Java-17-blue)](https://www.oracle.com/java/technologies/downloads/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0-green)](https://spring.io/projects/spring-boot)
 
 > 由于 Knife4j 长期未适配 Spring Boot 4.x + Jakarta EE，参考其设计思路重新实现，提供适配 **Spring Boot 4.0 + springdoc-openapi 3.x** 的 OpenAPI 文档聚合 UI，支持 Gateway 多服务聚合与单服务两种模式。
@@ -82,7 +82,7 @@
 ## 技术栈
 
 **后端**
-- Java 21
+- Java 17
 - Spring Boot 4.0.5
 - Spring Cloud 2025.1.0
 - springdoc-openapi 3.0.3

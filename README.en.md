@@ -14,7 +14,7 @@ SpringDoc-Plus is a Knife4j-style OpenAPI documentation UI for Spring Boot 4 and
 
 ## Requirements
 
-- Java 21
+- Java 17
 - Spring Boot 4.0.x
 - Spring Cloud 2025.1.x
 - springdoc-openapi 3.0.x

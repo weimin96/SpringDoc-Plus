@@ -69,7 +69,7 @@ const showExportModal = ref(false)
       <button
         :disabled="!spec"
         class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--c-border)] bg-transparent px-3 py-[5px] text-xs text-[var(--c-muted)] no-underline transition-all hover:bg-[var(--c-bg)] hover:text-[var(--c-text)] disabled:cursor-not-allowed disabled:opacity-50"
-        title="导出 DOCX 文档"
+        title="导出 API 文档"
         @click="showExportModal = true"
       >
         <svg class="h-3 w-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
