@@ -121,7 +121,7 @@ springdoc-plus
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-openapi3-spring-boot-starter</artifactId>
-    <version>0.1.7</version>
+    <version>0.1.8</version>
 </dependency>
 ```
 
@@ -191,7 +191,7 @@ http://localhost:8080/doc.html
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
-    <version>0.1.7</version>
+    <version>0.1.8</version>
 </dependency>
 ```
 
