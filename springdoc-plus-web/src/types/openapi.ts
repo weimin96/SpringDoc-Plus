@@ -88,7 +88,7 @@ export interface MediaTypeObject {
 }
 
 export interface SchemaObject {
-  type?: string
+  type?: string | string[]
   format?: string
   description?: string
   properties?: Record<string, SchemaObject>

@@ -37,6 +37,10 @@ jobs:
           java-version: '17'
           cache: 'maven'
 
+      - name: Check version consistency
+        shell: pwsh
+        run: ./scripts/check-version-consistency.ps1
+
       - name: Build, test and generate JaCoCo reports
         shell: pwsh
         run: |
@@ -178,7 +182,11 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./springdoc-plus-web
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Test frontend
+        working-directory: ./springdoc-plus-web
+        run: pnpm test
 
       - name: Build frontend
         working-directory: ./springdoc-plus-web

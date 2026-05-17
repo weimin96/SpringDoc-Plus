@@ -5,19 +5,41 @@ import type { MergedConfig } from '@/types'
 import { buildAuthHeaders, buildLegacyAuthHeader } from '@/utils/auth'
 import { assertOk, describeUnknownError } from '@/utils/apiError'
 
-const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace']
+const HTTP_METHODS: HttpMethod[] = [
+  'get',
+  'post',
+  'put',
+  'delete',
+  'patch',
+  'head',
+  'options',
+  'trace',
+]
 
 export function useOpenApi(cfg: MergedConfig) {
   const spec = ref<OpenApiSpec | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  let requestSeq = 0
+  let activeController: AbortController | null = null
+
+  function isAbortError(errorValue: unknown): boolean {
+    if (typeof DOMException !== 'undefined' && errorValue instanceof DOMException) {
+      return errorValue.name === 'AbortError'
+    }
+    return errorValue instanceof Error && errorValue.name === 'AbortError'
+  }
 
   async function load(url: string) {
+    const seq = ++requestSeq
+    activeController?.abort()
+    const controller = new AbortController()
+    activeController = controller
+
     loading.value = true
     error.value = null
     spec.value = null
     try {
-      // ── Build auth headers (unified via utils/auth) ────────────────────
       let headers: Record<string, string> = {}
       if (cfg.authEnabled) {
         if (cfg.authHeaders && cfg.authHeaders.length > 0) {
@@ -29,7 +51,7 @@ export function useOpenApi(cfg: MergedConfig) {
         }
       }
 
-      const res = await fetch(url, { headers })
+      const res = await fetch(url, { headers, signal: controller.signal })
       await assertOk(res, 'OpenAPI 文档')
 
       const contentType = res.headers.get('content-type') || ''
@@ -50,16 +72,35 @@ export function useOpenApi(cfg: MergedConfig) {
         }
       }
 
+      if (seq !== requestSeq || controller.signal.aborted) {
+        return
+      }
+
       if (!data || typeof data !== 'object') {
         throw new Error('无效的 OpenAPI 文档格式')
       }
 
       spec.value = data
     } catch (e) {
+      if (seq !== requestSeq || isAbortError(e)) {
+        return
+      }
       error.value = describeUnknownError(e, 'OpenAPI 文档')
     } finally {
-      loading.value = false
+      if (seq === requestSeq) {
+        if (activeController === controller) {
+          activeController = null
+        }
+        loading.value = false
+      }
     }
+  }
+
+  function abort() {
+    requestSeq += 1
+    activeController?.abort()
+    activeController = null
+    loading.value = false
   }
 
   const tagGroups = computed<TagGroup[]>(() => {
@@ -68,7 +109,6 @@ export function useOpenApi(cfg: MergedConfig) {
     const s = spec.value
     const groups = new Map<string, TagGroup>()
 
-    // pre-populate from spec.tags to preserve order / description
     const specTags = s.tags ?? []
     specTags.forEach((t, i) => {
       groups.set(t.name, {
@@ -79,7 +119,6 @@ export function useOpenApi(cfg: MergedConfig) {
       })
     })
 
-    // walk paths
     Object.entries(s.paths ?? {}).forEach(([path, item]) => {
       HTTP_METHODS.forEach((method) => {
         const op = item?.[method]
@@ -100,7 +139,6 @@ export function useOpenApi(cfg: MergedConfig) {
       })
     })
 
-    // sort operations within each group
     const sorter = cfg.operationsSorter
     groups.forEach((g) => {
       g.operations.sort((a, b) => {
@@ -109,7 +147,6 @@ export function useOpenApi(cfg: MergedConfig) {
       })
     })
 
-    // sort groups
     const arr = [...groups.values()]
     if (cfg.tagsSorter === 'order') {
       arr.sort((a, b) => a.order - b.order)
@@ -120,5 +157,5 @@ export function useOpenApi(cfg: MergedConfig) {
     return arr
   })
 
-  return { spec, loading, error, load, tagGroups }
+  return { spec, loading, error, load, abort, tagGroups }
 }

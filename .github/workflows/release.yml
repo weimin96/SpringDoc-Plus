@@ -38,6 +38,14 @@ jobs:
         working-directory: ./springdoc-plus-web
         run: pnpm install --frozen-lockfile
 
+      - name: Check version consistency
+        shell: pwsh
+        run: ./scripts/check-version-consistency.ps1
+
+      - name: Test frontend
+        working-directory: ./springdoc-plus-web
+        run: pnpm test
+
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
@@ -46,8 +54,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build project
-        run: mvn -q -DskipTests package
+      - name: Verify Maven modules and sample smoke tests
+        run: mvn -q -Pfrontend verify jacoco:report
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -88,6 +96,10 @@ jobs:
         working-directory: ./springdoc-plus-web
         run: pnpm install --frozen-lockfile
 
+      - name: Check version consistency
+        shell: pwsh
+        run: ./scripts/check-version-consistency.ps1
+
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
@@ -97,9 +109,12 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Create Maven settings.xml
+        shell: pwsh
         run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          $ErrorActionPreference = 'Stop'
+          $settingsDirectory = Join-Path $HOME '.m2'
+          $settingsPath = Join-Path $settingsDirectory 'settings.xml'
+          $settingsContent = @'
           <settings>
             <servers>
               <server>
@@ -117,10 +132,13 @@ jobs:
               </profile>
             </profiles>
           </settings>
-          EOF
+          '@
+
+          $null = New-Item -ItemType Directory -Path $settingsDirectory -Force
+          Set-Content -LiteralPath $settingsPath -Value $settingsContent -Encoding UTF8
 
       - name: Deploy to Maven Central
-        run: mvn deploy -DskipTests -Prelease
+        run: mvn -q -Pfrontend,release deploy
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           CENTER_USERNAME: ${{ secrets.CENTER_USERNAME }}
@@ -145,39 +163,55 @@ jobs:
 
       - name: Extract tag version
         id: tag
-        shell: bash
-        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:GITHUB_REF -replace '^refs/tags/', ''
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Prepare release changelog
         id: changelog
-        shell: bash
+        shell: pwsh
         run: |
-          version="${{ steps.tag.outputs.version }}"
-          normalized_version="${version#v}"
-          changelog_file="CHANGELOG.md"
-          release_notes_file="release-notes.md"
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ steps.tag.outputs.version }}'
+          $normalizedVersion = $version.TrimStart('v')
+          $changelogFile = 'CHANGELOG.md'
+          $releaseNotesFile = 'release-notes.md'
 
-          if [[ ! -f "$changelog_file" ]]; then
-            echo "CHANGELOG.md not found" > "$release_notes_file"
+          if (-not (Test-Path -LiteralPath $changelogFile)) {
+            Set-Content -LiteralPath $releaseNotesFile -Value '未找到 CHANGELOG.md。' -Encoding UTF8
+            "path=$releaseNotesFile" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
             exit 0
-          fi
+          }
 
-          awk -v version="$version" -v normalized_version="$normalized_version" '
-            BEGIN { capture = 0 }
-            $0 ~ "^## \\[" version "\\]" || $0 ~ "^## \\[" normalized_version "\\]" { capture = 1 }
-            capture && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" && $0 !~ "^## \\[" normalized_version "\\]" { exit }
-            capture { print }
-          ' "$changelog_file" > "$release_notes_file"
+          $lines = Get-Content -LiteralPath $changelogFile -Encoding UTF8
+          $capture = $false
+          $releaseLines = New-Object System.Collections.Generic.List[string]
 
-          if [[ ! -s "$release_notes_file" ]]; then
-            {
-              echo "## $version"
-              echo
-              echo "No matching changelog section found in CHANGELOG.md."
-            } > "$release_notes_file"
-          fi
+          foreach ($line in $lines) {
+            $isTargetHeading = $line -match "^## \[($([regex]::Escape($version))|$([regex]::Escape($normalizedVersion)))\]"
+            $isOtherHeading = $line -match '^## \[' -and -not $isTargetHeading
 
-          echo "path=$release_notes_file" >> "$GITHUB_OUTPUT"
+            if ($isTargetHeading) {
+              $capture = $true
+            } elseif ($capture -and $isOtherHeading) {
+              break
+            }
+
+            if ($capture) {
+              $releaseLines.Add($line)
+            }
+          }
+
+          if ($releaseLines.Count -eq 0) {
+            $releaseLines.Add("## $version")
+            $releaseLines.Add('')
+            $releaseLines.Add('CHANGELOG.md 中没有匹配的版本记录。')
+          }
+
+          Set-Content -LiteralPath $releaseNotesFile -Value $releaseLines -Encoding UTF8
+          "path=$releaseNotesFile" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

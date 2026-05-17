@@ -2,6 +2,7 @@
  * OpenAPI 文档处理工具
  * 用于 DOCX 导出功能
  */
+import { getOpenApiRefName, getSchemaPrimaryType, resolveOpenApiRef } from '@/utils/schema'
 
 export function isOAS3(swagger: any): boolean {
   return typeof swagger?.openapi === 'string' && swagger.openapi.startsWith('3')
@@ -51,7 +52,7 @@ function composeText(swagger: any): string {
     lines.push('')
     lines.push('服务器：')
     servers.forEach((s: any) =>
-      lines.push(`- ${s.url} ${s.description ? '(' + s.description + ')' : ''}`)
+      lines.push(`- ${s.url} ${s.description ? '(' + s.description + ')' : ''}`),
     )
   }
   lines.push('')
@@ -124,7 +125,9 @@ function buildApis(swagger: any) {
         name: p.name || '',
         in: p.in || '',
         required: !!p.required,
-        type: isOAS3(swagger) ? p.schema?.type || p.schema?.$ref || p.type || '' : p.type || '',
+        type: isOAS3(swagger)
+          ? getSchemaPrimaryType(p.schema) || p.schema?.$ref || p.type || ''
+          : p.type || '',
         desc: p.description || '',
       }))
       const responsesObj = op.responses || {}
@@ -216,21 +219,22 @@ function collectParameters(pathItem: any, op: any) {
 
 function schemaToText(schema: any): string {
   if (!schema) return '未定义'
-  if (schema.$ref) return schema.$ref
-  if (schema.type === 'object') {
+  if (schema.$ref) return getOpenApiRefName(schema.$ref)
+  const type = getSchemaPrimaryType(schema)
+  if (type === 'object') {
     const props = schema.properties || {}
     const required = new Set(schema.required || [])
     const items = Object.keys(props).map((k) => {
       const p = props[k]
       const req = required.has(k) ? '[必填]' : ''
-      return `${k}: ${p.type || ''} ${req} ${p.description || ''}`.trim()
+      return `${k}: ${getSchemaPrimaryType(p) || ''} ${req} ${p.description || ''}`.trim()
     })
     return `{ ${items.join('; ')} }`
   }
-  if (schema.type === 'array') {
+  if (type === 'array') {
     return `Array<${schemaToText(schema.items)}>`
   }
-  return schema.type || 'schema'
+  return type || 'schema'
 }
 
 export function buildTagGroups(swagger: any) {
@@ -294,22 +298,17 @@ function extractExampleFromOAS2(response: any): string {
 
 function resolveRef(swagger: any, ref?: string): any | null {
   if (!ref || typeof ref !== 'string') return null
-  if (!ref.startsWith('#/')) return null
-  const parts = ref.replace(/^#\//, '').split('/')
-  let cur: any = swagger
-  for (const p of parts) {
-    if (cur && typeof cur === 'object' && p in cur) cur = cur[p]
-    else return null
-  }
-  return cur || null
+  const resolved = resolveOpenApiRef(ref, swagger)
+  return resolved.status === 'resolved' ? resolved.value : null
 }
 
 function fieldTypeText(schema: any): string {
   if (!schema) return '未定义'
-  if (schema.$ref) return schema.$ref
-  if (schema.type === 'array') return `Array<${fieldTypeText(schema.items)}>`
-  if (schema.type === 'object') return 'object'
-  return schema.type || 'schema'
+  if (schema.$ref) return getOpenApiRefName(schema.$ref)
+  const type = getSchemaPrimaryType(schema)
+  if (type === 'array') return `Array<${fieldTypeText(schema.items)}>`
+  if (type === 'object') return 'object'
+  return type || 'schema'
 }
 
 function schemaToFields(
@@ -317,14 +316,14 @@ function schemaToFields(
   schema: any,
   parent: string = '',
   required: Set<string> = new Set(),
-  visitedRefs: Set<string> = new Set()
+  visitedRefs: Set<string> = new Set(),
 ): Array<{ name: string; type: string; required: boolean; desc: string }> {
   const out: Array<{ name: string; type: string; required: boolean; desc: string }> = []
   if (!schema) return out
   if (schema.$ref) {
     // 检测循环引用
     if (visitedRefs.has(schema.$ref)) {
-      return parent ? [{ name: parent, type: 'Circular Reference', required: false, desc: '循环引用' }] : []
+      return parent ? [{ name: parent, type: '循环引用', required: false, desc: '循环引用' }] : []
     }
     const resolved = resolveRef(swagger, schema.$ref)
     if (!resolved) return out
@@ -332,7 +331,8 @@ function schemaToFields(
     newVisitedRefs.add(schema.$ref)
     return schemaToFields(swagger, resolved, parent, required, newVisitedRefs)
   }
-  if (schema.type === 'object') {
+  const schemaType = getSchemaPrimaryType(schema)
+  if (schemaType === 'object') {
     const props = schema.properties || {}
     const reqSet = new Set([...(schema.required || []), ...required])
     Object.keys(props).forEach((k) => {
@@ -342,35 +342,32 @@ function schemaToFields(
       const isReq = reqSet.has(k)
       const desc = p.description || ''
       out.push({ name, type, required: isReq, desc })
-      if (p.$ref || p.type === 'object' || p.type === 'array') {
-        const nextSchema = p.$ref ? resolveRef(swagger, p.$ref) : p.type === 'array' ? p.items : p
+      const propertyType = getSchemaPrimaryType(p)
+      if (p.$ref || propertyType === 'object' || propertyType === 'array') {
+        const nextSchema = p.$ref
+          ? resolveRef(swagger, p.$ref)
+          : propertyType === 'array'
+            ? p.items
+            : p
         out.push(
           ...schemaToFields(
             swagger,
             nextSchema,
-            name + (p.type === 'array' ? '[]' : ''),
+            name + (propertyType === 'array' ? '[]' : ''),
             new Set(p.required || []),
-            visitedRefs
-          )
+            visitedRefs,
+          ),
         )
       }
     })
     return out
   }
-  if (schema.type === 'array') {
+  if (schemaType === 'array') {
     const name = parent ? `${parent}[]` : 'items'
     const type = fieldTypeText(schema)
     out.push({ name, type, required: false, desc: '' })
     if (schema.items) {
-      out.push(
-        ...schemaToFields(
-          swagger,
-          schema.items,
-          name,
-          new Set(),
-          visitedRefs
-        )
-      )
+      out.push(...schemaToFields(swagger, schema.items, name, new Set(), visitedRefs))
     }
     return out
   }

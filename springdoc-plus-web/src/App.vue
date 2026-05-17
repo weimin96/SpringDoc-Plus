@@ -33,10 +33,19 @@ const selectedOperation = ref<{ method: string; path: string; summary?: string }
 const pendingRouteState = ref<RouteState | null>(null)
 
 const configStore = useConfig({})
-const { spec, loading: specLoading, error: specError, load: loadSpec, tagGroups } = useOpenApi(configStore.state)
+const {
+  spec,
+  loading: specLoading,
+  error: specError,
+  load: loadSpec,
+  abort: abortSpec,
+  tagGroups,
+} = useOpenApi(configStore.state)
 
 const activeOperationKey = computed(() =>
-  selectedOperation.value ? `${selectedOperation.value.method}:${selectedOperation.value.path}` : null,
+  selectedOperation.value
+    ? `${selectedOperation.value.method}:${selectedOperation.value.path}`
+    : null,
 )
 const contentError = computed(() => groupsError.value ?? specError.value)
 
@@ -97,7 +106,10 @@ function selectGroup(group: ApiGroup, replace = false) {
   syncRouteState(replace)
 }
 
-function onSelectOperation(op: { method: string; path: string; summary?: string }, replace = false) {
+function onSelectOperation(
+  op: { method: string; path: string; summary?: string },
+  replace = false,
+) {
   selectedOperation.value = op
   viewMode.value = 'operation'
   syncRouteState(replace)
@@ -115,7 +127,8 @@ function applyRouteState(route: RouteState, replace = false) {
     return
   }
 
-  const targetGroup = groups.value.find((group) => group.url === route.groupUrl) ?? groups.value[0] ?? null
+  const targetGroup =
+    groups.value.find((group) => group.url === route.groupUrl) ?? groups.value[0] ?? null
   if (!targetGroup) {
     return
   }
@@ -197,12 +210,9 @@ onMounted(async () => {
   groupsError.value = null
 
   try {
-    const [g, srv] = await Promise.all([
-      fetchGroups(),
-      fetchServerUiConfig(),
-    ])
+    const [g, srv] = await Promise.all([fetchGroups(), fetchServerUiConfig()])
 
-    groups.value = g.map(group => ({ ...group, status: 'unknown' }))
+    groups.value = g.map((group) => ({ ...group, status: 'unknown' }))
     serverConfig.value = srv
 
     configStore.updateServer(srv)
@@ -229,6 +239,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('popstate', handlePopstate)
+  abortSpec()
 })
 </script>
 

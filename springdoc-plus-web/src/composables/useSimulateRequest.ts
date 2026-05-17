@@ -1,6 +1,6 @@
 import { ref, type Ref, watch } from 'vue'
 import type { OperationItem, SchemaObject } from '@/types/openapi'
-import { generateJsonSchemaExample } from '@/utils/schema'
+import { generateJsonSchemaExample, getSchemaPrimaryType } from '@/utils/schema'
 import { readStorage, writeStorage, removeStorage } from '@/utils/storage'
 
 export interface RequestParam {
@@ -51,7 +51,7 @@ function getRequestBodyContent(item: OperationItem) {
 
 function normalizeContentType(mediaType: string, schema: SchemaObject | null): string {
   if (mediaType !== '*/*') return mediaType
-  if (schema?.type === 'string') return 'text/plain'
+  if (getSchemaPrimaryType(schema) === 'string') return 'text/plain'
   if (schema?.format === 'binary') return 'application/octet-stream'
   return 'application/json'
 }
@@ -142,7 +142,7 @@ export function useSimulateRequest(
         name: param.name,
         in: param.in as RequestParam['in'],
         value: example,
-        type: param.schema?.type,
+        type: getSchemaPrimaryType(param.schema),
         required: param.required ?? false,
         description: param.description,
         example: example || undefined,

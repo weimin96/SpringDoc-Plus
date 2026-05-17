@@ -121,7 +121,7 @@ springdoc-plus
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-openapi3-spring-boot-starter</artifactId>
-    <version>0.1.6</version>
+    <version>0.1.7</version>
 </dependency>
 ```
 
@@ -191,7 +191,7 @@ http://localhost:8080/doc.html
 <dependency>
     <groupId>io.github.weimin96</groupId>
     <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
-    <version>0.1.6</version>
+    <version>0.1.7</version>
 </dependency>
 ```
 
@@ -303,7 +303,7 @@ http://localhost:8080/doc.html
 ### 1. 构建整个项目
 
 ```bash
-mvn -q -DskipTests package
+mvn -q verify
 ```
 
 ### 2. 分别启动三个服务

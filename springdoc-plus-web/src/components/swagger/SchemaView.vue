@@ -1,23 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { SchemaObject } from '@/types/openapi'
+import { getOpenApiRefName, getSchemaPrimaryType, resolveSchemaRef } from '@/utils/schema'
 
-const props = withDefaults(defineProps<{
-  schema: SchemaObject
-  schemas?: Record<string, SchemaObject>
-  depth?: number
-  ancestorRefs?: string[]
-}>(), {
-  depth: 0,
-  ancestorRefs: () => [],
-})
+const props = withDefaults(
+  defineProps<{
+    schema: SchemaObject
+    schemas?: Record<string, SchemaObject>
+    depth?: number
+    ancestorRefs?: string[]
+  }>(),
+  {
+    depth: 0,
+    ancestorRefs: () => [],
+  },
+)
 
 function getRefName(ref: string): string {
-  return ref.split('/').pop() ?? '?'
-}
-
-function resolveRef(ref: string, schemas?: Record<string, SchemaObject>): SchemaObject | null {
-  return schemas?.[getRefName(ref)] ?? null
+  return getOpenApiRefName(ref)
 }
 
 // 类型标签必须基于原始 schema 计算，否则引用名会在展示前退化成 object。
@@ -25,14 +25,17 @@ function resolveSchema(schema: SchemaObject): SchemaObject {
   if (!schema.$ref || !props.schemas) {
     return schema
   }
-  return resolveRef(schema.$ref, props.schemas) ?? schema
+  return resolveSchemaRef(schema, props.schemas) ?? schema
 }
 
 function hasRenderableProperties(schema: SchemaObject): boolean {
   return Boolean(schema.properties && Object.keys(schema.properties).length > 0)
 }
 
-function isCircularSchema(schema: SchemaObject, ancestorRefs: string[] = props.ancestorRefs): boolean {
+function isCircularSchema(
+  schema: SchemaObject,
+  ancestorRefs: string[] = props.ancestorRefs,
+): boolean {
   if (!schema.$ref) {
     return false
   }
@@ -41,7 +44,7 @@ function isCircularSchema(schema: SchemaObject, ancestorRefs: string[] = props.a
 
 function getNestedSchema(schema: SchemaObject): SchemaObject | null {
   const resolvedSchema = resolveSchema(schema)
-  if (resolvedSchema.type === 'array') {
+  if (getSchemaPrimaryType(resolvedSchema) === 'array') {
     return resolvedSchema.items ?? null
   }
   if (hasRenderableProperties(resolvedSchema)) {
@@ -50,14 +53,20 @@ function getNestedSchema(schema: SchemaObject): SchemaObject | null {
   return null
 }
 
-function getExpandableChildSchema(schema: SchemaObject, ancestorRefs: string[] = descendantAncestorRefs.value): SchemaObject | null {
+function getExpandableChildSchema(
+  schema: SchemaObject,
+  ancestorRefs: string[] = descendantAncestorRefs.value,
+): SchemaObject | null {
   const nestedSchema = getNestedSchema(schema)
   if (!nestedSchema || isCircularSchema(nestedSchema, ancestorRefs)) {
     return null
   }
 
   const resolvedNestedSchema = resolveSchema(nestedSchema)
-  if (resolvedNestedSchema.type === 'array' || hasRenderableProperties(resolvedNestedSchema)) {
+  if (
+    getSchemaPrimaryType(resolvedNestedSchema) === 'array' ||
+    hasRenderableProperties(resolvedNestedSchema)
+  ) {
     return nestedSchema
   }
 
@@ -77,18 +86,19 @@ function typeLabel(schema: SchemaObject): string {
     return getRefName(schema.$ref)
   }
 
-  if (schema.type === 'array' && schema.items) {
+  if (getSchemaPrimaryType(schema) === 'array' && schema.items) {
     return `array<${typeLabel(schema.items)}>`
   }
 
   const resolvedSchema = resolveSchema(schema)
-  if (resolvedSchema.type === 'array' && resolvedSchema.items) {
+  if (getSchemaPrimaryType(resolvedSchema) === 'array' && resolvedSchema.items) {
     return `array<${typeLabel(resolvedSchema.items)}>`
   }
   if (hasRenderableProperties(resolvedSchema)) {
     return 'object'
   }
-  return resolvedSchema.format ? `${resolvedSchema.type}(${resolvedSchema.format})` : resolvedSchema.type ?? '?'
+  const type = getSchemaPrimaryType(resolvedSchema)
+  return resolvedSchema.format ? `${type}(${resolvedSchema.format})` : (type ?? '?')
 }
 
 function typeColor(schema: SchemaObject): string {
@@ -96,12 +106,12 @@ function typeColor(schema: SchemaObject): string {
     return 'text-[var(--c-primary)]'
   }
 
-  if (schema.type === 'array') {
+  if (getSchemaPrimaryType(schema) === 'array') {
     return 'text-green-700'
   }
 
   const resolvedSchema = resolveSchema(schema)
-  const type = resolvedSchema.type
+  const type = getSchemaPrimaryType(resolvedSchema)
 
   if (resolvedSchema.$ref) return 'text-[var(--c-primary)]'
   if (type === 'string') return 'text-amber-600'
@@ -122,10 +132,7 @@ const descendantAncestorRefs = computed(() => {
 </script>
 
 <template>
-  <div
-    v-if="!isCircularSchema(schema) && hasRenderableProperties(resolved)"
-    class="text-xs"
-  >
+  <div v-if="!isCircularSchema(schema) && hasRenderableProperties(resolved)" class="text-xs">
     <div
       v-for="(propSchema, propName) in resolved.properties"
       :key="propName"
@@ -140,8 +147,12 @@ const descendantAncestorRefs = computed(() => {
         <span class="font-mono" :class="typeColor(propSchema)">
           {{ typeLabel(propSchema) }}
         </span>
-        <span v-if="propSchema.description" class="text-[var(--c-muted)]">- {{ propSchema.description }}</span>
-        <span v-else-if="isNestedCircular(propSchema)" class="text-[var(--c-muted)]">- 循环引用，已停止展开</span>
+        <span v-if="propSchema.description" class="text-[var(--c-muted)]">
+          - {{ propSchema.description }}
+        </span>
+        <span v-else-if="isNestedCircular(propSchema)" class="text-[var(--c-muted)]">
+          - 循环引用，已停止展开
+        </span>
       </div>
 
       <div v-if="getExpandableChildSchema(propSchema)" class="mt-1">
@@ -155,7 +166,7 @@ const descendantAncestorRefs = computed(() => {
     </div>
   </div>
 
-  <div v-else-if="resolved.type === 'array' && resolved.items" class="text-xs">
+  <div v-else-if="getSchemaPrimaryType(resolved) === 'array' && resolved.items" class="text-xs">
     <div class="font-mono" :class="typeColor(schema)">
       {{ typeLabel(schema) }}
     </div>
