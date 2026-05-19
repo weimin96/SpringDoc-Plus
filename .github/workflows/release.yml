@@ -42,9 +42,13 @@ jobs:
         shell: pwsh
         run: ./scripts/check-version-consistency.ps1
 
-      - name: Test frontend
+      - name: Test frontend with coverage
         working-directory: ./springdoc-plus-web
-        run: pnpm test
+        run: pnpm test:coverage
+
+      - name: Lint frontend styles
+        working-directory: ./springdoc-plus-web
+        run: pnpm lint:style
 
       - name: Cache Maven dependencies
         uses: actions/cache@v4
@@ -55,7 +59,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Verify Maven modules and sample smoke tests
-        run: mvn -q -Pfrontend verify jacoco:report
+        run: mvn -q -Pfrontend,samples verify jacoco:report
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -12,6 +12,10 @@
   <artifactId>springdoc-plus-gateway-spring-boot-starter</artifactId>
   <name>springdoc-plus-gateway-spring-boot-starter</name>
 
+  <properties>
+    <jacoco.branch.minimum>0.40</jacoco.branch.minimum>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>io.github.weimin96</groupId>

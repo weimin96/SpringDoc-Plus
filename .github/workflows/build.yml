@@ -69,6 +69,10 @@ jobs:
             Start-Sleep -Seconds $waitSeconds
           }
 
+      - name: Verify sample modules
+        shell: pwsh
+        run: mvn -q -Psamples verify -DskipFrontendBuild=true
+
       - name: Install Coveralls reporter
         shell: bash
         run: |
@@ -184,9 +188,13 @@ jobs:
         working-directory: ./springdoc-plus-web
         run: pnpm install --frozen-lockfile
 
-      - name: Test frontend
+      - name: Test frontend with coverage
         working-directory: ./springdoc-plus-web
-        run: pnpm test
+        run: pnpm test:coverage
+
+      - name: Lint frontend styles
+        working-directory: ./springdoc-plus-web
+        run: pnpm lint:style
 
       - name: Build frontend
         working-directory: ./springdoc-plus-web
