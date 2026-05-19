@@ -6,6 +6,13 @@ import Docxtemplater from 'docxtemplater'
 import { saveAs } from 'file-saver'
 import yaml from 'js-yaml'
 import { buildDocData, getTagsMeta, groupApisByTag, summarizeSwagger, buildTagGroups } from '@/utils/openapi'
+import {
+  buildHtml,
+  buildInsomniaCollection,
+  buildMarkdown,
+  buildPostmanCollection,
+  type ExportFormat,
+} from '@/utils/export'
 
 const props = defineProps<{
   visible: boolean
@@ -19,7 +26,10 @@ const emit = defineEmits<{
 // 模板文件
 const templateFile = ref<File | null>(null)
 const loading = ref(false)
-const exportFormat = ref<'docx' | 'markdown' | 'html' | 'json' | 'yaml'>('docx')
+const exportFormat = ref<ExportFormat>('docx')
+const includeExamples = ref(true)
+const includeSchemas = ref(true)
+const maskSensitiveHeaders = ref(true)
 
 // 编辑信息
 const editableTitle = ref('')
@@ -159,64 +169,6 @@ function getSelectedApis(data: any) {
   )
 }
 
-function buildMarkdown(data: any) {
-  const lines: string[] = [
-    `# ${data.title || 'API 文档'}`,
-    '',
-    `版本：${data.version || '-'}`,
-    '',
-  ]
-  if (data.description) {
-    lines.push(data.description, '')
-  }
-  for (const group of data.groups ?? []) {
-    lines.push(`## ${group.tag}`, '')
-    if (group.description) lines.push(group.description, '')
-    for (const api of group.items ?? []) {
-      lines.push(`### ${api.summary || api.path}`, '')
-      lines.push(`- Method：${api.method}`)
-      lines.push(`- Path：${api.path}`)
-      if (api.description) lines.push(`- Description：${api.description}`)
-      if (api.parameters?.length) {
-        lines.push('', '| 参数 | 位置 | 类型 | 必填 | 说明 |', '| --- | --- | --- | --- | --- |')
-        api.parameters.forEach((p: any) => lines.push(`| ${p.name} | ${p.in || ''} | ${p.type || ''} | ${p.required ? '是' : '否'} | ${p.desc || ''} |`))
-      }
-      lines.push('')
-    }
-  }
-  return lines.join('\n')
-}
-
-function buildHtml(data: any) {
-  const body = (data.groups ?? []).map((group: any) => `
-    <section>
-      <h2>${group.tag}</h2>
-      ${group.description ? `<p>${group.description}</p>` : ''}
-      ${(group.items ?? []).map((api: any) => `
-        <article>
-          <h3>${api.summary || api.path}</h3>
-          <p><strong>${api.method}</strong> <code>${api.path}</code></p>
-          ${api.description ? `<p>${api.description}</p>` : ''}
-        </article>
-      `).join('')}
-    </section>
-  `).join('')
-  return `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <title>${data.title || 'API 文档'}</title>
-  <style>body{font-family:Arial,sans-serif;max-width:960px;margin:40px auto;line-height:1.7;color:#111827}code{background:#f3f4f6;padding:2px 6px;border-radius:4px}article{border-top:1px solid #e5e7eb;padding:16px 0}</style>
-</head>
-<body>
-  <h1>${data.title || 'API 文档'}</h1>
-  <p>版本：${data.version || '-'}</p>
-  ${data.description ? `<p>${data.description}</p>` : ''}
-  ${body}
-</body>
-</html>`
-}
-
 async function exportDoc() {
   if (!canExport.value || !props.spec) return
   loading.value = true
@@ -228,14 +180,19 @@ async function exportDoc() {
     data.apis = getSelectedApis(data)
     const tagsMeta = getTagsMeta(props.spec)
     data.groups = groupApisByTag(Array.isArray(data.apis) ? data.apis : [], tagsMeta)
+    const exportOptions = {
+      includeExamples: includeExamples.value,
+      includeSchemas: includeSchemas.value,
+      maskSensitiveHeaders: maskSensitiveHeaders.value,
+    }
 
     const baseName = `${data.title || 'api'}_${data.version || ''}`
     if (exportFormat.value === 'markdown') {
-      downloadTextFile(buildMarkdown(data), `${baseName}.md`, 'text/markdown;charset=utf-8')
+      downloadTextFile(buildMarkdown(data, exportOptions), `${baseName}.md`, 'text/markdown;charset=utf-8')
       return
     }
     if (exportFormat.value === 'html') {
-      downloadTextFile(buildHtml(data), `${baseName}.html`, 'text/html;charset=utf-8')
+      downloadTextFile(buildHtml(data, exportOptions), `${baseName}.html`, 'text/html;charset=utf-8')
       return
     }
     if (exportFormat.value === 'json') {
@@ -244,6 +201,14 @@ async function exportDoc() {
     }
     if (exportFormat.value === 'yaml') {
       downloadTextFile(yaml.dump(props.spec), `${baseName}.yaml`, 'application/yaml;charset=utf-8')
+      return
+    }
+    if (exportFormat.value === 'postman') {
+      downloadTextFile(JSON.stringify(buildPostmanCollection(data, exportOptions), null, 2), `${baseName}.postman_collection.json`, 'application/json;charset=utf-8')
+      return
+    }
+    if (exportFormat.value === 'insomnia') {
+      downloadTextFile(JSON.stringify(buildInsomniaCollection(data, exportOptions), null, 2), `${baseName}.insomnia.json`, 'application/json;charset=utf-8')
       return
     }
 
@@ -372,7 +337,27 @@ watch(() => props.visible, (v) => {
                 <option value="html">HTML 文档</option>
                 <option value="json">OpenAPI JSON 原始文件</option>
                 <option value="yaml">OpenAPI YAML 原始文件</option>
+                <option value="postman">Postman Collection</option>
+                <option value="insomnia">Insomnia Collection</option>
               </select>
+            </div>
+
+            <div class="mb-4 rounded-lg border border-[var(--c-border)] p-3">
+              <h3 class="mb-3 text-[11px] font-bold uppercase tracking-wider text-[var(--c-muted)]">导出选项</h3>
+              <div class="space-y-2 text-[12px] text-[var(--c-text)]">
+                <label class="flex cursor-pointer items-center gap-2">
+                  <input v-model="includeExamples" type="checkbox" class="accent-[var(--c-primary)]" />
+                  包含响应示例
+                </label>
+                <label class="flex cursor-pointer items-center gap-2">
+                  <input v-model="includeSchemas" type="checkbox" class="accent-[var(--c-primary)]" />
+                  包含 Schema 详情
+                </label>
+                <label class="flex cursor-pointer items-center gap-2">
+                  <input v-model="maskSensitiveHeaders" type="checkbox" class="accent-[var(--c-primary)]" />
+                  脱敏鉴权 Header
+                </label>
+              </div>
             </div>
 
             <!-- 模板选择 -->
