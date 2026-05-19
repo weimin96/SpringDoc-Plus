@@ -11,6 +11,7 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
 import java.util.*;
 
 /**
@@ -99,6 +100,17 @@ public class SpringdocPlusGatewayProperties {
         private String openapi3Url = "/v3/api-docs";
 
         /**
+         * 路由分组缓存配置
+         */
+        @Valid
+        private Cache cache = new Cache();
+
+        /**
+         * 解析 Gateway 路由定义的超时时间
+         */
+        private Duration timeout = Duration.ofSeconds(3);
+
+        /**
          * 每个服务个性化配置：key=serviceId
          */
         private Map<String, ServiceConfig> serviceConfig = new HashMap<>();
@@ -113,6 +125,28 @@ public class SpringdocPlusGatewayProperties {
          * 无参构造器
          */
         public Discover() {
+        }
+    }
+
+    /**
+     * 服务发现缓存配置
+     */
+    @Data
+    public static class Cache {
+        /**
+         * 缓存写入后的有效时间
+         */
+        private Duration ttl = Duration.ofSeconds(60);
+
+        /**
+         * 最大缓存条目数
+         */
+        private long maximumSize = 10;
+
+        /**
+         * 无参构造器
+         */
+        public Cache() {
         }
     }
 

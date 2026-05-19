@@ -9,8 +9,10 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -19,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -42,15 +43,7 @@ public class DiscoverGroupsService {
     private final SpringdocPlusGatewayProperties props;
     private final RouteDefinitionLocator routeDefinitionLocator;
 
-    /**
-     * 分组列表缓存，TTL 默认 60 秒
-     */
     private final Cache<String, List<GatewayRoute>> groupsCache;
-
-    /**
-     * 缓存 TTL（秒）
-     */
-    private static final long CACHE_TTL_SECONDS = 60;
 
     /**
      * 构造器
@@ -62,8 +55,8 @@ public class DiscoverGroupsService {
         this.props = props;
         this.routeDefinitionLocator = routeDefinitionLocator;
         this.groupsCache = Caffeine.newBuilder()
-                .expireAfterWrite(CACHE_TTL_SECONDS, TimeUnit.SECONDS)
-                .maximumSize(10)
+                .expireAfterWrite(discoverCacheTtl())
+                .maximumSize(discoverCacheMaximumSize())
                 .build();
     }
 
@@ -81,7 +74,8 @@ public class DiscoverGroupsService {
             return sort(copy(props.getRoutes()));
         }
 
-        String cacheKey = buildCacheKey(discoverServiceIds);
+        Map<String, String> inferredContextPath = resolveContextPathsBlocking();
+        String cacheKey = buildCacheKey(discoverServiceIds, inferredContextPath);
 
         List<GatewayRoute> cached = groupsCache.getIfPresent(cacheKey);
         if (cached != null) {
@@ -89,7 +83,7 @@ public class DiscoverGroupsService {
             return copy(cached);
         }
 
-        List<GatewayRoute> result = computeGroups(discoverServiceIds);
+        List<GatewayRoute> result = computeGroups(discoverServiceIds, inferredContextPath);
         groupsCache.put(cacheKey, copy(result));
         log.debug("生成分组列表 {} 个条目，已放入缓存", result.size());
         return result;
@@ -100,18 +94,18 @@ public class DiscoverGroupsService {
             return Mono.just(sort(copy(props.getRoutes())));
         }
 
-        String cacheKey = buildCacheKey(discoverServiceIds);
-        List<GatewayRoute> cached = groupsCache.getIfPresent(cacheKey);
-        if (cached != null) {
-            log.debug("从缓存获取分组列表，key: {}", cacheKey);
-            return Mono.just(copy(cached));
-        }
-
         return resolveContextPathsReactive()
-                .map(inferredContextPath -> computeGroups(discoverServiceIds, inferredContextPath))
-                .doOnNext(result -> {
+                .flatMap(inferredContextPath -> {
+                    String cacheKey = buildCacheKey(discoverServiceIds, inferredContextPath);
+                    List<GatewayRoute> cached = groupsCache.getIfPresent(cacheKey);
+                    if (cached != null) {
+                        log.debug("从缓存获取分组列表，key: {}", cacheKey);
+                        return Mono.just(copy(cached));
+                    }
+                    List<GatewayRoute> result = computeGroups(discoverServiceIds, inferredContextPath);
                     groupsCache.put(cacheKey, copy(result));
                     log.debug("生成分组列表 {} 个条目，已放入缓存", result.size());
+                    return Mono.just(result);
                 });
     }
 
@@ -166,7 +160,9 @@ public class DiscoverGroupsService {
         }
         GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(routeDefinitionLocator);
         try {
-            List<GatewayRouteDefinitionResolver.ResolvedRoute> resolvedRoutes = resolver.resolve().collectList().block();
+            List<GatewayRouteDefinitionResolver.ResolvedRoute> resolvedRoutes = resolver.resolve()
+                    .collectList()
+                    .block(discoverTimeout());
             return toContextPathMap(resolvedRoutes == null ? Collections.emptyList() : resolvedRoutes);
         } catch (Exception e) {
             log.warn("从 Gateway 路由定义解析 contextPath 失败: {}", e.getMessage());
@@ -181,6 +177,7 @@ public class DiscoverGroupsService {
         GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(routeDefinitionLocator);
         return resolver.resolve()
                 .collectList()
+                .timeout(discoverTimeout())
                 .map(this::toContextPathMap)
                 .onErrorResume(ex -> {
                     log.warn("从 Gateway 路由定义解析 contextPath 失败: {}", ex.getMessage());
@@ -199,10 +196,16 @@ public class DiscoverGroupsService {
         return inferredContextPath;
     }
 
-    private String buildCacheKey(Optional<List<String>> discoverServiceIds) {
+    private String buildCacheKey(Optional<List<String>> discoverServiceIds, Map<String, String> inferredContextPath) {
         List<String> normalized = new ArrayList<>(discoverServiceIds.orElseGet(Collections::emptyList));
         normalized.sort(String.CASE_INSENSITIVE_ORDER);
-        return "groups-" + normalized.hashCode();
+        return "groups-" + Objects.hash(
+                normalized,
+                inferredContextPath,
+                props.getDiscover().getOpenapi3Url(),
+                props.getDiscover().getExcludedServices(),
+                props.getDiscover().getServiceConfig(),
+                props.getRoutes());
     }
 
     private GatewayRoute buildRoute(String serviceId, SpringdocPlusGatewayProperties.ServiceConfig sc, String contextPath, String group) {
@@ -218,19 +221,61 @@ public class DiscoverGroupsService {
             r.setName(display);
         }
 
-        String url = contextPath + props.getDiscover().getOpenapi3Url();
-        if (group != null && !group.isBlank()) {
-            // 对齐 Knife4j 文档：discover 模式默认聚合 default，其他分组需要显式 group 参数
-            if (url.contains("?")) {
-                url = url + "&group=" + group;
-            } else {
-                url = url + "?group=" + group;
-            }
-        }
-        r.setUrl(url);
+        r.setUrl(buildOpenApiUrl(contextPath, group));
 
         r.setOrder(sc != null && sc.getOrder() != null ? sc.getOrder() : 0);
         return r;
+    }
+
+    private String buildOpenApiUrl(String contextPath, String group) {
+        String openapiUrl = props.getDiscover().getOpenapi3Url();
+        String path = openapiUrl;
+        String query = null;
+        int queryStart = openapiUrl.indexOf('?');
+        if (queryStart >= 0) {
+            path = openapiUrl.substring(0, queryStart);
+            query = openapiUrl.substring(queryStart + 1);
+        }
+
+        UriComponentsBuilder builder = UriComponentsBuilder.fromPath(joinPath(contextPath, path));
+        if (query != null && !query.isBlank()) {
+            builder.query(query);
+        }
+        if (group != null && !group.isBlank()) {
+            // 对齐 Knife4j 文档：discover 模式默认聚合 default，其他分组需要显式 group 参数。
+            builder.queryParam("group", group);
+        }
+        return builder.build().encode().toUriString();
+    }
+
+    private String joinPath(String contextPath, String openapiPath) {
+        String left = contextPath == null || contextPath.isBlank() ? "/" : contextPath;
+        String right = openapiPath == null || openapiPath.isBlank() ? "/" : openapiPath;
+        if (!left.startsWith("/")) {
+            left = "/" + left;
+        }
+        if (left.endsWith("/") && right.startsWith("/")) {
+            return left + right.substring(1);
+        }
+        if (!left.endsWith("/") && !right.startsWith("/")) {
+            return left + "/" + right;
+        }
+        return left + right;
+    }
+
+    private Duration discoverCacheTtl() {
+        Duration ttl = props.getDiscover().getCache().getTtl();
+        return ttl == null || ttl.isNegative() || ttl.isZero() ? Duration.ofSeconds(60) : ttl;
+    }
+
+    private long discoverCacheMaximumSize() {
+        long maximumSize = props.getDiscover().getCache().getMaximumSize();
+        return maximumSize <= 0 ? 10 : maximumSize;
+    }
+
+    private Duration discoverTimeout() {
+        Duration timeout = props.getDiscover().getTimeout();
+        return timeout == null || timeout.isNegative() || timeout.isZero() ? Duration.ofSeconds(3) : timeout;
     }
 
     private boolean excluded(String serviceId) {

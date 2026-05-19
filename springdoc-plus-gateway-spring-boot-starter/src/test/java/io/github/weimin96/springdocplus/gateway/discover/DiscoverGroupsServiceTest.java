@@ -176,6 +176,46 @@ class DiscoverGroupsServiceTest {
         assertThat(normalRoute.getUrl()).contains("group=normal");
     }
 
+    @Test
+    void discoverUrlEncodesGroupQueryParameter() {
+        props.setStrategy(GatewayStrategy.DISCOVER);
+        props.getDiscover().setEnabled(true);
+        props.getDiscover().setResolveContextPathFromGatewayRoutes(false);
+        props.getDiscover().setOpenapi3Url("/v3/api-docs?lang=zh");
+
+        SpringdocPlusGatewayProperties.ServiceConfig sc = new SpringdocPlusGatewayProperties.ServiceConfig();
+        sc.setGroupNames(List.of("管理 分组&版本#1"));
+        props.getDiscover().getServiceConfig().put("user-service", sc);
+
+        DiscoverGroupsService service = new DiscoverGroupsService(props, routeDefinitionLocator);
+
+        List<GatewayRoute> result = service.getGroups(Optional.of(List.of("user-service")));
+
+        assertThat(result).anyMatch(route -> "管理 分组&版本#1".equals(route.getGroup())
+                && "/user-service/v3/api-docs?lang=zh&group=%E7%AE%A1%E7%90%86%20%E5%88%86%E7%BB%84%26%E7%89%88%E6%9C%AC%231"
+                        .equals(route.getUrl()));
+    }
+
+    @Test
+    void discoverCacheKeyIncludesMutableServiceConfig() {
+        props.setStrategy(GatewayStrategy.DISCOVER);
+        props.getDiscover().setEnabled(true);
+        props.getDiscover().setResolveContextPathFromGatewayRoutes(false);
+
+        SpringdocPlusGatewayProperties.ServiceConfig sc = new SpringdocPlusGatewayProperties.ServiceConfig();
+        sc.setContextPath("/old-users");
+        props.getDiscover().getServiceConfig().put("user-service", sc);
+
+        DiscoverGroupsService service = new DiscoverGroupsService(props, routeDefinitionLocator);
+
+        List<GatewayRoute> first = service.getGroups(Optional.of(List.of("user-service")));
+        sc.setContextPath("/new-users");
+        List<GatewayRoute> second = service.getGroups(Optional.of(List.of("user-service")));
+
+        assertThat(first).singleElement().satisfies(route -> assertThat(route.getContextPath()).isEqualTo("/old-users"));
+        assertThat(second).singleElement().satisfies(route -> assertThat(route.getContextPath()).isEqualTo("/new-users"));
+    }
+
     /**
      * 测试排序：按 order 字段升序
      */

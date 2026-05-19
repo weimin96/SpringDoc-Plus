@@ -104,6 +104,90 @@ class GatewayRouteDefinitionResolverTest {
                 .verifyComplete();
     }
 
+    @Test
+    void resolvePrefixPathForCatchAllRoute() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("prefix-route");
+        rd.setUri(URI.create("lb://internal-service"));
+
+        PredicateDefinition pathPredicate = new PredicateDefinition();
+        pathPredicate.setName("Path");
+        pathPredicate.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "/**"));
+        rd.setPredicates(Collections.singletonList(pathPredicate));
+
+        FilterDefinition prefixPathFilter = new FilterDefinition();
+        prefixPathFilter.setName("PrefixPath");
+        prefixPathFilter.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "/user-service"));
+        rd.setFilters(Collections.singletonList(prefixPathFilter));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("internal-service");
+                    assertThat(route.contextPath()).isEqualTo("/user-service");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void resolveRewritePathWithMatchingStaticPrefix() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("rewrite-route");
+        rd.setUri(URI.create("lb://order-service"));
+
+        PredicateDefinition pathPredicate = new PredicateDefinition();
+        pathPredicate.setName("Path");
+        pathPredicate.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "/openapi/v1/order/**"));
+        rd.setPredicates(Collections.singletonList(pathPredicate));
+
+        FilterDefinition rewritePathFilter = new FilterDefinition();
+        rewritePathFilter.setName("RewritePath");
+        rewritePathFilter.setArgs(Map.of(
+                NameUtils.GENERATED_NAME_PREFIX + "0", "/openapi/v1/order/(?<segment>.*)",
+                NameUtils.GENERATED_NAME_PREFIX + "1", "/${segment}"
+        ));
+        rd.setFilters(Collections.singletonList(rewritePathFilter));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("order-service");
+                    assertThat(route.contextPath()).isEqualTo("/openapi");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void resolveSetPathFallsBackToExternalPathWhenTemplateIsDynamic() {
+        RouteDefinition rd = new RouteDefinition();
+        rd.setId("set-path-route");
+        rd.setUri(URI.create("lb://user-service"));
+
+        PredicateDefinition pathPredicate = new PredicateDefinition();
+        pathPredicate.setName("Path");
+        pathPredicate.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "/internal/doc/user/{segment}"));
+        rd.setPredicates(Collections.singletonList(pathPredicate));
+
+        FilterDefinition setPathFilter = new FilterDefinition();
+        setPathFilter.setName("SetPath");
+        setPathFilter.setArgs(Map.of(NameUtils.GENERATED_NAME_PREFIX + "0", "/{segment}"));
+        rd.setFilters(Collections.singletonList(setPathFilter));
+
+        RouteDefinitionLocator locator = () -> Flux.just(rd);
+        GatewayRouteDefinitionResolver resolver = new GatewayRouteDefinitionResolver(locator);
+
+        StepVerifier.create(resolver.resolve())
+                .assertNext(route -> {
+                    assertThat(route.serviceId()).isEqualTo("user-service");
+                    assertThat(route.contextPath()).isEqualTo("/internal");
+                })
+                .verifyComplete();
+    }
+
     /**
      * 测试多路径模式（逗号分隔）取第一个
      */

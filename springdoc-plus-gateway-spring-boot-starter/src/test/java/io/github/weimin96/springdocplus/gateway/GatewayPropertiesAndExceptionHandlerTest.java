@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
@@ -33,6 +34,9 @@ class GatewayPropertiesAndExceptionHandlerTest {
         properties.getAuth().setEnabled(false);
         properties.getDiscover().setEnabled(true);
         properties.getDiscover().setExcludedServices(Set.of("ignore-service"));
+        properties.getDiscover().getCache().setTtl(Duration.ofSeconds(30));
+        properties.getDiscover().getCache().setMaximumSize(100);
+        properties.getDiscover().setTimeout(Duration.ofSeconds(3));
 
         SpringdocPlusGatewayProperties.ServiceConfig serviceConfig = new SpringdocPlusGatewayProperties.ServiceConfig();
         serviceConfig.setOrder(2);
@@ -50,6 +54,9 @@ class GatewayPropertiesAndExceptionHandlerTest {
         assertThat(properties.getAuth().isEnabled()).isFalse();
         assertThat(properties.getDiscover().isEnabled()).isTrue();
         assertThat(properties.getDiscover().getExcludedServices()).contains("ignore-service");
+        assertThat(properties.getDiscover().getCache().getTtl()).isEqualTo(Duration.ofSeconds(30));
+        assertThat(properties.getDiscover().getCache().getMaximumSize()).isEqualTo(100);
+        assertThat(properties.getDiscover().getTimeout()).isEqualTo(Duration.ofSeconds(3));
         assertThat(properties.getDiscover().getServiceConfig().get("user-service").getContextPath()).isEqualTo("/api/users");
     }
 
