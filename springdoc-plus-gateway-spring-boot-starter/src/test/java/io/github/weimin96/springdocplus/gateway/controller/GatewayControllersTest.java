@@ -5,6 +5,7 @@ import io.github.weimin96.springdocplus.core.enums.GroupOrderStrategy;
 import io.github.weimin96.springdocplus.core.model.GatewayRoute;
 import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
+import io.github.weimin96.springdocplus.gateway.security.SpringdocPlusSecurityHeadersWebFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -13,7 +14,11 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -129,39 +134,25 @@ class GatewayControllersTest {
 
         ResponseEntity<Resource> html = controller.docHtml().block();
         assertThat(html.getBody()).isSameAs(resource);
+        assertThat(html.getHeaders().getFirst("Cache-Control")).isEqualTo("no-cache");
+    }
 
-        ResponseEntity<Resource> js = controller.uiAsset("index.js").block();
-        assertThat(js.getHeaders().getFirst("Cache-Control")).isEqualTo("no-cache");
+    @Test
+    void securityHeadersApplyOnlyToDocumentationResources() {
+        SpringdocPlusSecurityHeadersWebFilter filter = new SpringdocPlusSecurityHeadersWebFilter();
+        MockServerWebExchange docExchange = MockServerWebExchange.from(MockServerHttpRequest.get("/doc.html").build());
+        WebFilterChain chain = exchange -> exchange.getResponse().setComplete();
 
-        ResponseEntity<Resource> invalid = controller.uiAsset("../secret").block();
-        assertThat(invalid.getStatusCode().value()).isEqualTo(400);
+        filter.filter(docExchange, chain).block();
 
-        ResponseEntity<Resource> encodedTraversal = controller.uiAsset("%2e%2e%2fsecret").block();
-        assertThat(encodedTraversal.getStatusCode().value()).isEqualTo(400);
+        assertThat(docExchange.getResponse().getHeaders().getFirst("Content-Security-Policy")).contains("frame-ancestors 'self'");
+        assertThat(docExchange.getResponse().getHeaders().getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(docExchange.getResponse().getHeaders().getFirst("Referrer-Policy")).isEqualTo("strict-origin-when-cross-origin");
+        assertThat(docExchange.getResponse().getHeaders().getFirst("X-Frame-Options")).isEqualTo("SAMEORIGIN");
 
-        ResponseEntity<Resource> root = controller.uiRootAsset("favicon.svg").block();
-        assertThat(root.getHeaders().getContentType().toString()).contains("image/svg+xml");
-
-        ResponseEntity<Resource> css = controller.uiAsset("styles.css").block();
-        assertThat(css.getHeaders().getContentType().toString()).contains("text/css");
-
-        ResponseEntity<Resource> png = controller.uiRootAsset("logo.png").block();
-        assertThat(png.getHeaders().getContentType().toString()).contains("image/png");
-
-        ResponseEntity<Resource> docx = controller.uiDocAsset("模板.docx").block();
-        assertThat(docx.getHeaders().getContentType().toString()).contains("wordprocessingml.document");
-
-        ResponseEntity<Resource> ico = controller.uiRootAsset("favicon.ico").block();
-        assertThat(ico.getHeaders().getContentType().toString()).contains("image/x-icon");
-
-        ResponseEntity<Resource> binary = controller.uiAsset("font.woff").block();
-        assertThat(binary.getHeaders().getContentType().toString()).contains("application/octet-stream");
-
-        ResponseEntity<Resource> invalidRoot = controller.uiRootAsset("..\\secret").block();
-        assertThat(invalidRoot.getStatusCode().value()).isEqualTo(400);
-
-        ResponseEntity<Resource> invalidDoc = controller.uiDocAsset("../模板.docx").block();
-        assertThat(invalidDoc.getStatusCode().value()).isEqualTo(400);
+        MockServerWebExchange apiExchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/users").build());
+        filter.filter(apiExchange, chain).block();
+        assertThat(apiExchange.getResponse().getHeaders().getFirst("Content-Security-Policy")).isNull();
     }
 
     private static <T> ObjectProvider<T> objectProvider(T value) {

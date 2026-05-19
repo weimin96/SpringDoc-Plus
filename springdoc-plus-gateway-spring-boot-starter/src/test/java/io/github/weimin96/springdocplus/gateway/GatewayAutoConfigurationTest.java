@@ -6,10 +6,12 @@ import io.github.weimin96.springdocplus.gateway.controller.SpringdocPlusUiConfig
 import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
 import io.github.weimin96.springdocplus.gateway.exception.GlobalExceptionHandler;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
+import io.github.weimin96.springdocplus.gateway.security.SpringdocPlusSecurityHeadersWebFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
+import org.springframework.web.reactive.config.WebFluxConfigurer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,6 +38,9 @@ class GatewayAutoConfigurationTest {
                     assertThat(context).hasSingleBean(SpringdocPlusUiConfigController.class);
                     assertThat(context).hasSingleBean(DocHtmlController.class);
                     assertThat(context).hasSingleBean(GlobalExceptionHandler.class);
+                    assertThat(context).hasBean("springdocPlusResourceConfigurer");
+                    assertThat(context).hasSingleBean(SpringdocPlusSecurityHeadersWebFilter.class);
+                    assertThat(context).getBean("springdocPlusResourceConfigurer").isInstanceOf(WebFluxConfigurer.class);
                 });
     }
 

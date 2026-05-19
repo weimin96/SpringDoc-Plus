@@ -7,11 +7,13 @@ import io.github.weimin96.springdocplus.gateway.controller.SpringdocPlusUiConfig
 import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
 import io.github.weimin96.springdocplus.gateway.exception.GlobalExceptionHandler;
 import io.github.weimin96.springdocplus.gateway.security.BasicAuthWebFilter;
+import io.github.weimin96.springdocplus.gateway.security.SpringdocPlusSecurityHeadersWebFilter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.web.reactive.config.WebFluxConfigurer;
 
 /**
  * 网关自动配置类。
@@ -96,10 +98,17 @@ public class SpringdocPlusGatewayAutoConfiguration {
     }
 
     @Bean
+    public org.springframework.web.server.WebFilter springdocPlusSecurityHeadersWebFilter() {
+        return new SpringdocPlusSecurityHeadersWebFilter();
+    }
+
+    @Bean
+    public WebFluxConfigurer springdocPlusResourceConfigurer() {
+        return new SpringdocPlusResourceConfiguration();
+    }
+
+    @Bean
     public GlobalExceptionHandler springdocPlusGlobalExceptionHandler() {
         return new GlobalExceptionHandler();
     }
-
-    // 注意：不使用 WebFluxConfigurer 配置静态资源，因为可能与网关路由冲突
-    // 静态资源由 DocHtmlController 直接处理
 }
