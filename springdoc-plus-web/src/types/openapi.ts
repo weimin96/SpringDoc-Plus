@@ -54,6 +54,7 @@ export interface OperationObject {
   requestBody?: RequestBodyObject
   responses?: Record<string, ResponseObject>
   security?: SecurityRequirementObject[]
+  callbacks?: Record<string, PathItemObject>
   /**
    * SpringDoc-Plus 扩展字段：接口排序值。
    * 对应 Java 侧 @Operation(extensions = @Extension(properties = @ExtensionProperty(name="x-order", value="1")))
@@ -78,13 +79,31 @@ export interface RequestBodyObject {
 
 export interface ResponseObject {
   description?: string
+  headers?: Record<string, HeaderObject>
   content?: Record<string, MediaTypeObject>
+  links?: Record<string, LinkObject>
+}
+
+export interface HeaderObject {
+  description?: string
+  required?: boolean
+  schema?: SchemaObject
+  example?: unknown
+  examples?: Record<string, unknown>
 }
 
 export interface MediaTypeObject {
   schema?: SchemaObject
   example?: unknown
   examples?: Record<string, unknown>
+}
+
+export interface LinkObject {
+  operationRef?: string
+  operationId?: string
+  parameters?: Record<string, unknown>
+  requestBody?: unknown
+  description?: string
 }
 
 export interface SchemaObject {
@@ -103,13 +122,22 @@ export interface SchemaObject {
   anyOf?: SchemaObject[]
   oneOf?: SchemaObject[]
   allOf?: SchemaObject[]
+  discriminator?: DiscriminatorObject
   nullable?: boolean
+  readOnly?: boolean
+  writeOnly?: boolean
+  deprecated?: boolean
   minimum?: number
   maximum?: number
   minLength?: number
   maxLength?: number
   minItems?: number
   maxItems?: number
+}
+
+export interface DiscriminatorObject {
+  propertyName: string
+  mapping?: Record<string, string>
 }
 
 export interface ComponentsObject {
