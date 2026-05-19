@@ -37,6 +37,11 @@ class GatewayPropertiesAndExceptionHandlerTest {
         properties.getDiscover().getCache().setTtl(Duration.ofSeconds(30));
         properties.getDiscover().getCache().setMaximumSize(100);
         properties.getDiscover().setTimeout(Duration.ofSeconds(3));
+        properties.getProxy().setEnabled(true);
+        properties.getProxy().setTimeout(Duration.ofSeconds(2));
+        properties.getProxy().getCache().setTtl(Duration.ofSeconds(20));
+        properties.getProxy().getCache().setMaximumSize(50);
+        properties.getProxy().setMaxDocumentBytes(1024);
 
         SpringdocPlusGatewayProperties.ServiceConfig serviceConfig = new SpringdocPlusGatewayProperties.ServiceConfig();
         serviceConfig.setOrder(2);
@@ -57,6 +62,11 @@ class GatewayPropertiesAndExceptionHandlerTest {
         assertThat(properties.getDiscover().getCache().getTtl()).isEqualTo(Duration.ofSeconds(30));
         assertThat(properties.getDiscover().getCache().getMaximumSize()).isEqualTo(100);
         assertThat(properties.getDiscover().getTimeout()).isEqualTo(Duration.ofSeconds(3));
+        assertThat(properties.getProxy().isEnabled()).isTrue();
+        assertThat(properties.getProxy().getTimeout()).isEqualTo(Duration.ofSeconds(2));
+        assertThat(properties.getProxy().getCache().getTtl()).isEqualTo(Duration.ofSeconds(20));
+        assertThat(properties.getProxy().getCache().getMaximumSize()).isEqualTo(50);
+        assertThat(properties.getProxy().getMaxDocumentBytes()).isEqualTo(1024);
         assertThat(properties.getDiscover().getServiceConfig().get("user-service").getContextPath()).isEqualTo("/api/users");
     }
 

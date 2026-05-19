@@ -75,6 +75,12 @@ public class SpringdocPlusGatewayProperties {
     private final Discover discover = new Discover();
 
     /**
+     * OpenAPI 文档代理配置
+     */
+    @Valid
+    private OpenApiProxy proxy = new OpenApiProxy();
+
+    /**
      * 服务发现配置
      */
     @Data
@@ -147,6 +153,39 @@ public class SpringdocPlusGatewayProperties {
          * 无参构造器
          */
         public Cache() {
+        }
+    }
+
+    /**
+     * OpenAPI 文档代理配置
+     */
+    @Data
+    public static class OpenApiProxy {
+        /**
+         * 是否启用服务端文档代理
+         */
+        private boolean enabled = true;
+
+        /**
+         * 下游文档请求超时时间
+         */
+        private Duration timeout = Duration.ofSeconds(3);
+
+        /**
+         * 代理响应缓存配置
+         */
+        @Valid
+        private Cache cache = new Cache();
+
+        /**
+         * 单个 OpenAPI 文档最大字节数
+         */
+        private long maxDocumentBytes = 5L * 1024L * 1024L;
+
+        /**
+         * 无参构造器
+         */
+        public OpenApiProxy() {
         }
     }
 

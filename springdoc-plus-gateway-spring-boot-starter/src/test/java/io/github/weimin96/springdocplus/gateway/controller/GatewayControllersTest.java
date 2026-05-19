@@ -5,6 +5,7 @@ import io.github.weimin96.springdocplus.core.enums.GroupOrderStrategy;
 import io.github.weimin96.springdocplus.core.model.GatewayRoute;
 import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
+import io.github.weimin96.springdocplus.gateway.proxy.OpenApiSpecProxyService;
 import io.github.weimin96.springdocplus.gateway.security.SpringdocPlusSecurityHeadersWebFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -72,6 +73,7 @@ class GatewayControllersTest {
         SpringdocPlusGatewayOpenApiController controller = new SpringdocPlusGatewayOpenApiController(
                 props,
                 service,
+                mock(OpenApiSpecProxyService.class),
                 objectProvider(null),
                 objectProvider(reactiveDiscoveryClient)
         );
@@ -98,6 +100,7 @@ class GatewayControllersTest {
         SpringdocPlusGatewayOpenApiController controller = new SpringdocPlusGatewayOpenApiController(
                 props,
                 service,
+                mock(OpenApiSpecProxyService.class),
                 objectProvider(discoveryClient),
                 objectProvider(null)
         );
@@ -115,6 +118,7 @@ class GatewayControllersTest {
         SpringdocPlusGatewayOpenApiController controller = new SpringdocPlusGatewayOpenApiController(
                 props,
                 service,
+                mock(OpenApiSpecProxyService.class),
                 objectProvider(null),
                 objectProvider(null)
         );

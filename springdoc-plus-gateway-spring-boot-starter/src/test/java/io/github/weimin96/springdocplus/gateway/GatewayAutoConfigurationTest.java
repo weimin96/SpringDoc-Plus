@@ -6,6 +6,7 @@ import io.github.weimin96.springdocplus.gateway.controller.SpringdocPlusUiConfig
 import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
 import io.github.weimin96.springdocplus.gateway.exception.GlobalExceptionHandler;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
+import io.github.weimin96.springdocplus.gateway.proxy.OpenApiSpecProxyService;
 import io.github.weimin96.springdocplus.gateway.security.SpringdocPlusSecurityHeadersWebFilter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -35,6 +36,7 @@ class GatewayAutoConfigurationTest {
                     assertThat(context).hasSingleBean(SpringdocPlusGatewayProperties.class);
                     assertThat(context).hasSingleBean(DiscoverGroupsService.class);
                     assertThat(context).hasSingleBean(SpringdocPlusGatewayOpenApiController.class);
+                    assertThat(context).hasSingleBean(OpenApiSpecProxyService.class);
                     assertThat(context).hasSingleBean(SpringdocPlusUiConfigController.class);
                     assertThat(context).hasSingleBean(DocHtmlController.class);
                     assertThat(context).hasSingleBean(GlobalExceptionHandler.class);

@@ -4,13 +4,17 @@ import io.github.weimin96.springdocplus.core.enums.GatewayStrategy;
 import io.github.weimin96.springdocplus.core.model.GatewayRoute;
 import io.github.weimin96.springdocplus.gateway.properties.SpringdocPlusGatewayProperties;
 import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
+import io.github.weimin96.springdocplus.gateway.proxy.OpenApiSpecProxyService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +35,7 @@ public class SpringdocPlusGatewayOpenApiController {
 
     private final SpringdocPlusGatewayProperties props;
     private final DiscoverGroupsService discoverGroupsService;
+    private final OpenApiSpecProxyService openApiSpecProxyService;
 
     private final DiscoveryClient discoveryClient;
     private final ReactiveDiscoveryClient reactiveDiscoveryClient;
@@ -45,11 +50,13 @@ public class SpringdocPlusGatewayOpenApiController {
     public SpringdocPlusGatewayOpenApiController(
             SpringdocPlusGatewayProperties props,
             DiscoverGroupsService discoverGroupsService,
+            OpenApiSpecProxyService openApiSpecProxyService,
             org.springframework.beans.factory.ObjectProvider<DiscoveryClient> discoveryClientProvider,
             org.springframework.beans.factory.ObjectProvider<ReactiveDiscoveryClient> reactiveDiscoveryClientProvider
     ) {
         this.props = props;
         this.discoverGroupsService = discoverGroupsService;
+        this.openApiSpecProxyService = openApiSpecProxyService;
         this.discoveryClient = discoveryClientProvider.getIfAvailable();
         this.reactiveDiscoveryClient = reactiveDiscoveryClientProvider.getIfAvailable();
     }
@@ -67,6 +74,24 @@ public class SpringdocPlusGatewayOpenApiController {
                     log.debug("返回聚合文档分组 {} 个", groups.size());
                     return new GroupsResponse(groups);
                 });
+    }
+
+    /**
+     * 代理获取指定服务分组的 OpenAPI 文档。
+     *
+     * @param service  服务 ID
+     * @param group    分组名称
+     * @param exchange 当前请求上下文
+     * @return OpenAPI 文档响应
+     */
+    @GetMapping(value = "/springdoc-plus-gateway/openapi/spec")
+    public Mono<ResponseEntity<byte[]>> spec(
+            @RequestParam("service") String service,
+            @RequestParam(value = "group", defaultValue = "default") String group,
+            ServerWebExchange exchange) {
+        return resolveServiceIds()
+                .flatMap(discoverGroupsService::getGroupsReactive)
+                .flatMap(routes -> openApiSpecProxyService.proxy(exchange, routes, service, group));
     }
 
     private Mono<Optional<List<String>>> resolveServiceIds() {

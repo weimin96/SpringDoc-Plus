@@ -8,12 +8,14 @@ import io.github.weimin96.springdocplus.gateway.discover.DiscoverGroupsService;
 import io.github.weimin96.springdocplus.gateway.exception.GlobalExceptionHandler;
 import io.github.weimin96.springdocplus.gateway.security.BasicAuthWebFilter;
 import io.github.weimin96.springdocplus.gateway.security.SpringdocPlusSecurityHeadersWebFilter;
+import io.github.weimin96.springdocplus.gateway.proxy.OpenApiSpecProxyService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
+import org.springframework.web.reactive.function.client.WebClient;
 
 /**
  * 网关自动配置类。
@@ -57,9 +59,20 @@ public class SpringdocPlusGatewayAutoConfiguration {
     public SpringdocPlusGatewayOpenApiController springdocPlusGatewayOpenApiController(
             SpringdocPlusGatewayProperties props,
             DiscoverGroupsService discoverGroupsService,
+            OpenApiSpecProxyService openApiSpecProxyService,
             ObjectProvider<org.springframework.cloud.client.discovery.DiscoveryClient> discoveryClientProvider,
             ObjectProvider<org.springframework.cloud.client.discovery.ReactiveDiscoveryClient> reactiveDiscoveryClientProvider) {
-        return new SpringdocPlusGatewayOpenApiController(props, discoverGroupsService, discoveryClientProvider, reactiveDiscoveryClientProvider);
+        return new SpringdocPlusGatewayOpenApiController(
+                props,
+                discoverGroupsService,
+                openApiSpecProxyService,
+                discoveryClientProvider,
+                reactiveDiscoveryClientProvider);
+    }
+
+    @Bean
+    public OpenApiSpecProxyService springdocPlusOpenApiSpecProxyService(SpringdocPlusGatewayProperties props) {
+        return new OpenApiSpecProxyService(props, WebClient.builder());
     }
 
     /**
