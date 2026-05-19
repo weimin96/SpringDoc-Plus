@@ -7,18 +7,35 @@ import io.github.weimin96.springdocplus.openapi3.controller.SingleOpenApiUiConfi
 import io.github.weimin96.springdocplus.openapi3.properties.SpringdocPlusOpenApi3Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SpringdocPlusOpenApi3StarterAutoConfigurationTest {
 
-    private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(SpringdocPlusOpenApi3StarterAutoConfiguration.class));
+    private final WebApplicationContextRunner mvcContextRunner = new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                    SpringdocPlusMvcAutoConfiguration.class,
+                    SpringdocPlusWebFluxAutoConfiguration.class));
 
     @Test
-    void registersStarterBeansWhenEnabled() {
-        contextRunner
+    void registersStarterBeansWhenPropertyMissing() {
+        mvcContextRunner
+                .run(context -> {
+                    assertThat(context).hasSingleBean(DocHtmlController.class);
+                    assertThat(context).hasSingleBean(SingleOpenApiGroupsController.class);
+                    assertThat(context).hasSingleBean(SingleOpenApiUiConfigController.class);
+
+                    SpringdocPlusOpenApi3Properties properties = context.getBean(SpringdocPlusOpenApi3Properties.class);
+                    assertThat(properties.isEnabled()).isTrue();
+                });
+    }
+
+    @Test
+    void registersStarterBeansWhenExplicitlyEnabled() {
+        mvcContextRunner
                 .withPropertyValues(
                         "springdoc-plus.openapi3.enabled=true",
                         "springdoc-plus.openapi3.tags-sorter=order",
@@ -48,8 +65,32 @@ class SpringdocPlusOpenApi3StarterAutoConfigurationTest {
 
     @Test
     void backsOffWhenDisabled() {
-        contextRunner
+        mvcContextRunner
                 .withPropertyValues("springdoc-plus.openapi3.enabled=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(DocHtmlController.class);
+                    assertThat(context).doesNotHaveBean(SingleOpenApiGroupsController.class);
+                    assertThat(context).doesNotHaveBean(SingleOpenApiUiConfigController.class);
+                });
+    }
+
+    @Test
+    void backsOffWhenMvcSwaggerConfigMissing() {
+        mvcContextRunner
+                .withClassLoader(new FilteredClassLoader("org.springdoc.webmvc.ui.SwaggerConfig"))
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(DocHtmlController.class);
+                    assertThat(context).doesNotHaveBean(SingleOpenApiGroupsController.class);
+                    assertThat(context).doesNotHaveBean(SingleOpenApiUiConfigController.class);
+                });
+    }
+
+    @Test
+    void backsOffOutsideWebApplication() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        SpringdocPlusMvcAutoConfiguration.class,
+                        SpringdocPlusWebFluxAutoConfiguration.class))
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(DocHtmlController.class);
                     assertThat(context).doesNotHaveBean(SingleOpenApiGroupsController.class);

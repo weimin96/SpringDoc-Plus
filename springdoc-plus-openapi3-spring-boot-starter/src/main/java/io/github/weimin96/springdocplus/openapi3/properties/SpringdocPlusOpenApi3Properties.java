@@ -35,7 +35,7 @@ public class SpringdocPlusOpenApi3Properties {
     /**
      * 是否启用单服务 OpenAPI 文档
      */
-    private boolean enabled = false;
+    private boolean enabled = true;
 
     /**
      * 分组列表配置
